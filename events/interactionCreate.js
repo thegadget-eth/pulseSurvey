@@ -8,9 +8,15 @@ module.exports = {
     if (!command) return;
 
     try {
-      await command.execute(interaction);
+      if (interaction.guild.ownerId === interaction.user.id)
+        await command.execute(interaction);
+      else
+        await interaction.reply({
+          content: "This command available to admins only!",
+          ephemeral: true,
+        });
     } catch (error) {
-      console.error(error);
+      // console.error(error);
       await interaction.reply({
         content: "There was an error while executing this command!",
         ephemeral: true,

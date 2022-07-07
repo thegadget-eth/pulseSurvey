@@ -5,6 +5,7 @@ module.exports = {
   data: new SlashCommandBuilder()
     .setName("survey")
     .setDescription("Send surveys")
+    .setDMPermission(false)
     .addSubcommand((subcommand) =>
       subcommand
         .setName("by-role")
@@ -48,39 +49,42 @@ module.exports = {
     if (interaction.options._subcommand === "by-role") {
       const role = interaction.options.getRole("role");
       Members.map(async ({ roles, id, user, joinedTimestamp }) => {
-        if (roles.cache.some((memberRole) => memberRole.name === role.name)) {
-          const targetUser = await interaction.client.users.fetch(id);
-          const message = `Dear ${user}, It's been ${formatDistanceToNow(
-            joinedTimestamp
-          )} Since you joined to the ${
-            guild.name
-          }. \n\nWe'd love to hear how things are going!\nYour feedback is important to us!\n\nWe use it to ensure our dao is providing proper direction and to ensure we have the opportunity \nto change our approach to better suit your needs if necessary\n\nPlease use the following link to fill out the survey: 
-          \n${link}`;
-          targetUser.send(message);
+        const targetUser = await interaction.client.users.fetch(id);
+        const message = `Dear ${user},\n\nThis is an official message by RnDAO, in case of doubt, please check the #announcements channel 🙂\n\nWe're testing our newly created pulse-survey bot by inviting you to participate in our research project to identify the Top Challenges in DAOs.\nPlease support this research by voting on problem statements and/or adding your own statements for others to vote on: ${link}\n\nThe results will be published open source in the RnDAO discord and twitter: @RnDAO__`;
+        if (role.name === "@everyone") {
+          if (!user.bot)
+            targetUser
+              .send(message)
+              .catch((e) => console.error(`Couldn't DM member ${user}`));
+        } else if (
+          roles.cache.some((memberRole) => memberRole.name === role.name)
+        ) {
+          targetUser
+            .send(message)
+            .catch((e) => console.error(`Couldn't DM member ${user}`));
         }
       });
     } else {
       const since = interaction.options.getString("since");
       const till = interaction.options.getString("till");
       Members.map(async ({ id, user, joinedTimestamp }) => {
-        const message = `Dear ${user}, It's been ${formatDistanceToNow(
-          joinedTimestamp
-        )} Since you joined to the ${
-          guild.name
-        }. \n\nWe'd love to hear how things are going!\nYour feedback is important to us!\n\nWe use it to ensure our dao is providing proper direction and to ensure we have the opportunity \nto change our approach to better suit your needs if necessary\n\nPlease use the following link to fill out the survey: 
-        \n${link}`;
+        const message = `Dear ${user},\n\nThis is an official message by RnDAO, in case of doubt, please check the #announcements channel 🙂\n\nWe're testing our newly created pulse-survey bot by inviting you to participate in our research project to identify the Top Challenges in DAOs.\nPlease support this research by voting on problem statements and/or adding your own statements for others to vote on: ${link}\n\nThe results will be published open source in the RnDAO discord and twitter: @RnDAO__`;
         if (!user.bot) {
           if (till) {
             if (joinedTimestamp < till && joinedTimestamp > since) {
               const targetUser = await interaction.client.users.fetch(id);
               console.log(targetUser);
-              targetUser.send(message); // 1655729528883 till
+              targetUser
+                .send(message)
+                .catch((e) => console.error(`Couldn't DM member ${user}`)); // 1655729528883 till
             }
           } else {
             if (joinedTimestamp > since) {
               const targetUser = await interaction.client.users.fetch(id);
               console.log(targetUser);
-              targetUser.send(message); // 1654087928883 since
+              targetUser
+                .send(message)
+                .catch((e) => console.error(`Couldn't DM member ${user}`)); // 1654087928883 since
             }
           }
         }
