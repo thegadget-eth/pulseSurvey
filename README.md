@@ -1,6 +1,6 @@
 # RnPulse Discord bot
 
-This the official RnDAO Repository
+This is the official RnPulse discord bot Repository
 
 ## Available scripts
 
