@@ -52,33 +52,51 @@ module.exports = {
     const channel = interaction.client.channels.cache.get(
       interaction.channelId
     );
-    await interaction.deferReply();
+    // await interaction.deferReply();
     fetchMessages(channel, count)
       .then((messages) => {
         const data = {
           sheet: "messages",
           columns: [
+            { label: "Created_At", value: "Created_At" },
             { label: "Author", value: "Author" },
             { label: "Content", value: "Content" },
-            { label: "Mentions", value: "Mentions" },
+            { label: "User_Mentions", value: "User_Mentions" },
+            { label: "Roles_Mentions", value: "Roles_Mentions" },
           ],
           content: [],
         };
         messages.map(({ id, value: m }) => {
-          const regexp = new RegExp("<@(\\d+)>", "g");
-          let mentions = m.content.match(regexp);
-          if (mentions)
-            mentions = mentions.map((s) => {
+          const user_regexp = new RegExp("<@(\\d+)>", "g");
+          const role_regexp = new RegExp("<@&(\\d+)>", "g");
+          let users_mentions = m.content.match(user_regexp);
+          let roles_mentions = m.content.match(role_regexp);
+          if (users_mentions)
+            users_mentions = users_mentions.map((s) => {
               const id = s.replace(/[<>@]/g, "");
               const user = m.mentions.users.get(id);
               const username = `${user.username}#${user.discriminator}`;
               m.content = m.content.replace(new RegExp(s, "g"), username);
               return username;
             });
+          if (roles_mentions)
+            roles_mentions = roles_mentions.map((s) => {
+              const id = s.replace(/[<>@&]/g, "");
+              const role = m.mentions.roles.get(id);
+              const roleName = `@${role.name}`;
+              m.content = m.content.replace(new RegExp(s, "g"), roleName);
+              return roleName;
+            });
           const row = {
+            Created_At: m.createdTimestamp,
             Author: `${m.author.username}#${m.author.discriminator}`,
             Content: m.content,
-            Mentions: mentions ? mentions.join(",") : mentions,
+            User_Mentions: users_mentions
+              ? users_mentions.join(",")
+              : users_mentions,
+            Roles_Mentions: roles_mentions
+              ? roles_mentions.join(",")
+              : roles_mentions,
           };
           data.content.push(row);
         });
@@ -89,13 +107,13 @@ module.exports = {
         });
         const filename = `${interaction.channelId}.xlsx`;
         const excelFile = new Discord.MessageAttachment(filename, filename);
-        interaction
-          .editReply({
-            content: `Here's your excel export for the last ${count} messages`,
-            ephemeral: true,
-            files: [excelFile],
-          })
-          .then((r) => fs.unlinkSync(filename));
+        // interaction
+        //   .editReply({
+        //     content: `Here's your excel export for the last ${count} messages`,
+        //     ephemeral: true,
+        //     files: [excelFile],
+        //   })
+        //   .then((r) => fs.unlinkSync(filename));
       })
       .catch((e) => console.error(e));
   },
