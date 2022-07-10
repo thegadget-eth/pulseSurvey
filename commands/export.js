@@ -52,7 +52,7 @@ module.exports = {
     const channel = interaction.client.channels.cache.get(
       interaction.channelId
     );
-    await interaction.deferReply();
+    await interaction.deferReply({ ephemeral: true });
     fetchMessages(channel, count)
       .then((messages) => {
         const data = {
@@ -67,12 +67,20 @@ module.exports = {
             { label: "Roles_Mentions", value: "Roles_Mentions" },
             { label: "Replied_User", value: "Replied_User" },
             { label: "Reference_Message", value: "Reference_Message" },
+            { label: "Reactions", value: "Reactions" },
           ],
           content: [],
         };
         messages.map(({ id, value: m }) => {
           const user_regexp = new RegExp("<@(\\d+)>", "g");
           const role_regexp = new RegExp("<@&(\\d+)>", "g");
+          const reactions =
+            m.reactions.cache.size !== 0
+              ? Array.from(m.reactions.cache, ([id, value]) => [
+                  `${value.message.author.username}#${value.message.author.discriminator}`,
+                  id,
+                ])
+              : [];
           let users_mentions = m.content.match(user_regexp);
           let roles_mentions = m.content.match(role_regexp);
           if (users_mentions)
@@ -106,6 +114,9 @@ module.exports = {
             ...(m.type === "REPLY" && {
               Replied_User: `${m.mentions.repliedUser.username}#${m.mentions.repliedUser.discriminator}`,
               Reference_Message: m.reference.messageId,
+            }),
+            ...(reactions.length !== 0 && {
+              Reactions: reactions.join("&"),
             }),
           };
           data.content.push(row);
