@@ -52,17 +52,21 @@ module.exports = {
     const channel = interaction.client.channels.cache.get(
       interaction.channelId
     );
-    // await interaction.deferReply();
+    await interaction.deferReply();
     fetchMessages(channel, count)
       .then((messages) => {
         const data = {
           sheet: "messages",
           columns: [
+            { label: "Id", value: "Id" },
+            { label: "Type", value: "Type" },
             { label: "Created_At", value: "Created_At" },
             { label: "Author", value: "Author" },
             { label: "Content", value: "Content" },
             { label: "User_Mentions", value: "User_Mentions" },
             { label: "Roles_Mentions", value: "Roles_Mentions" },
+            { label: "Replied_User", value: "Replied_User" },
+            { label: "Reference_Message", value: "Reference_Message" },
           ],
           content: [],
         };
@@ -88,6 +92,8 @@ module.exports = {
               return roleName;
             });
           const row = {
+            Id: m.id,
+            Type: m.type,
             Created_At: m.createdTimestamp,
             Author: `${m.author.username}#${m.author.discriminator}`,
             Content: m.content,
@@ -97,6 +103,10 @@ module.exports = {
             Roles_Mentions: roles_mentions
               ? roles_mentions.join(",")
               : roles_mentions,
+            ...(m.type === "REPLY" && {
+              Replied_User: `${m.mentions.repliedUser.username}#${m.mentions.repliedUser.discriminator}`,
+              Reference_Message: m.reference.messageId,
+            }),
           };
           data.content.push(row);
         });
@@ -107,13 +117,13 @@ module.exports = {
         });
         const filename = `${interaction.channelId}.xlsx`;
         const excelFile = new Discord.MessageAttachment(filename, filename);
-        // interaction
-        //   .editReply({
-        //     content: `Here's your excel export for the last ${count} messages`,
-        //     ephemeral: true,
-        //     files: [excelFile],
-        //   })
-        //   .then((r) => fs.unlinkSync(filename));
+        interaction
+          .editReply({
+            content: `Here's your excel export for the last ${count} messages`,
+            ephemeral: true,
+            files: [excelFile],
+          })
+          .then((r) => fs.unlinkSync(filename));
       })
       .catch((e) => console.error(e));
   },
