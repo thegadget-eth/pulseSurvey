@@ -8,7 +8,11 @@ module.exports = {
     if (!command) return;
 
     try {
-      if (interaction.guild.ownerId === interaction.user.id)
+      if (
+        interaction.member.roles.cache.some(
+          (memberRole) => memberRole.name === "role for tests"
+        )
+      )
         await command.execute(interaction);
       else
         await interaction.reply({
