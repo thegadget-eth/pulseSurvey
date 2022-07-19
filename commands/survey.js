@@ -17,7 +17,7 @@ module.exports = {
             .setRequired(true)
         )
         .addStringOption((option) =>
-          option.setName("link").setDescription("survey link").setRequired(true)
+          option.setName("message").setDescription("message").setRequired(true)
         )
     )
     .addSubcommand((subcommand) =>
@@ -25,7 +25,7 @@ module.exports = {
         .setName("by-date")
         .setDescription("Send surveys by date")
         .addStringOption((option) =>
-          option.setName("link").setDescription("survey link").setRequired(true)
+          option.setName("message").setDescription("message").setRequired(true)
         )
         .addStringOption((option) =>
           option
@@ -44,15 +44,13 @@ module.exports = {
       interaction.guildId
     );
     const Members = await guild.members.cache.map((member) => member);
-    const link = interaction.options.getString("link");
-
+    const message = interaction.options.getString("message").replace(/\\n|\\r\\n/g, '\n')
     if (interaction.options._subcommand === "by-role") {
       let counter = 0;
       const role = interaction.options.getRole("role");
       const interval = setInterval(async () => {
         const { roles, id, user } = Members[counter];
         const targetUser = await interaction.client.users.fetch(id);
-        const message = `Dear ${user},\n\nThis is an official message by RnDAO, in case of doubt, please check the #announcements channel 🙂\n\nWe're testing our newly created pulse-survey bot by inviting you to participate in our research project to identify the Top Challenges in DAOs.\nPlease support this research by voting on problem statements and/or adding your own statements for others to vote on: ${link}\n\nThe results will be published open source in the RnDAO discord and twitter: @RnDAO__`;
         if (role.name === "@everyone") {
           if (!user.bot)
             targetUser
@@ -83,7 +81,6 @@ module.exports = {
       const till = interaction.options.getString("till");
       const interval = setInterval(async () => {
         const { id, user, joinedTimestamp } = Members[counter];
-        const message = `Dear ${user},\n\nThis is an official message by RnDAO, in case of doubt, please check the #announcements channel 🙂\n\nWe're testing our newly created pulse-survey bot by inviting you to participate in our research project to identify the Top Challenges in DAOs.\nPlease support this research by voting on problem statements and/or adding your own statements for others to vote on: ${link}\n\nThe results will be published open source in the RnDAO discord and twitter: @RnDAO__`;
         if (!user.bot) {
           if (till) {
             if (joinedTimestamp < till && joinedTimestamp > since) {
