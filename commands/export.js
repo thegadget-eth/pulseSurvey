@@ -1,9 +1,9 @@
 const { SlashCommandBuilder } = require("@discordjs/builders");
 const formatDistanceToNow = require("date-fns/formatDistanceToNow");
-const xlsx = require("json-as-xlsx");
+// const xlsx = require("json-as-xlsx");  // Commented incase you wanted to switch back to xlsx 
 const Discord = require("discord.js");
 const fs = require("fs");
-const { tr } = require("date-fns/locale");
+const { tr, fil } = require("date-fns/locale");
 
 async function fetchMessages(channel, {limit = 500, since=null}={}) {
   const sum_messages = [];
@@ -70,8 +70,7 @@ module.exports = {
     await interaction.deferReply({ ephemeral: true });
     try {
       const messages = await getMessagesByCommand(interaction)
-      generateExcel(messages, interaction, () => {
-        const filename = `${interaction.channelId}.xlsx`;
+      generateExcel(messages, interaction, filename => {
         const excelFile = new Discord.MessageAttachment(filename, filename);
         interaction
           .editReply({
@@ -109,20 +108,24 @@ async function getMessagesByCommand(interaction){
 }
 
 function generateExcel(messages, interaction, callback){
+  /*
+   you can just remove data and use content. 
+   Didn't remove the structure so if we wanted to switch back we can do it only by uncommenting previous code.
+  */ 
   const data = {
-    sheet: "messages",
-    columns: [
-      { label: "Id", value: "Id" },
-      { label: "Type", value: "Type" },
-      { label: "Created_At", value: "Created_At" },
-      { label: "Author", value: "Author" },
-      { label: "Content", value: "Content" },
-      { label: "User_Mentions", value: "User_Mentions" },
-      { label: "Roles_Mentions", value: "Roles_Mentions" },
-      { label: "Replied_User", value: "Replied_User" },
-      { label: "Reference_Message", value: "Reference_Message" },
-      { label: "Reactions", value: "Reactions" },
-    ],
+    // sheet: "messages",
+    // columns: [
+    //   { label: "Id", value: "Id" },
+    //   { label: "Type", value: "Type" },
+    //   { label: "Created_At", value: "Created_At" },
+    //   { label: "Author", value: "Author" },
+    //   { label: "Content", value: "Content" },
+    //   { label: "User_Mentions", value: "User_Mentions" },
+    //   { label: "Roles_Mentions", value: "Roles_Mentions" },
+    //   { label: "Replied_User", value: "Replied_User" },
+    //   { label: "Reference_Message", value: "Reference_Message" },
+    //   { label: "Reactions", value: "Reactions" },
+    // ],
     content: [],
   };
   messages.map(({ id, value: m }) => {
@@ -175,10 +178,26 @@ function generateExcel(messages, interaction, callback){
     };
     data.content.push(row);
   });
-  xlsx([data], {
-    fileName: interaction.channelId,
-    extraLength: 3, // A bigger number means that columns will be wider
-    writeOptions: {}, // Style options from https://github.com/SheetJS/sheetjs#writing-options
-  });
-  callback()
+  // xlsx([data], {
+  //   fileName: interaction.channelId,
+  //   extraLength: 3, // A bigger number means that columns will be wider
+  //   writeOptions: {}, // Style options from https://github.com/SheetJS/sheetjs#writing-options
+  // });
+  const filename = `${interaction.channelId}.csv`
+  csvGenerator(data.content, filename)
+  callback(filename)
+}
+
+
+function csvGenerator(json, filename){
+  const fields = Object.keys(json[0])
+  const replacer = function(key, value) { return value === null ? '' : value } 
+  let csv = json.map(row => {
+    return fields.map(fieldName => {
+      return JSON.stringify(row[fieldName], replacer)
+    }).join(',')
+  })
+  csv.unshift(fields.join(',')) // add header column
+  csv = csv.join('\n');
+  fs.writeFileSync(filename, csv)
 }
