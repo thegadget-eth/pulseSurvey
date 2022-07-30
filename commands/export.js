@@ -1,9 +1,9 @@
 const { SlashCommandBuilder } = require("@discordjs/builders");
 const formatDistanceToNow = require("date-fns/formatDistanceToNow");
-// const xlsx = require("json-as-xlsx");  // Commented incase you wanted to switch back to xlsx 
 const Discord = require("discord.js");
 const fs = require("fs");
-const { tr, fil } = require("date-fns/locale");
+const { tr, fil, fi } = require("date-fns/locale");
+const archiver = require('archiver');
 
 async function fetchMessages(channel, {limit = 500, since=null}={}) {
   const sum_messages = [];
@@ -70,16 +70,30 @@ module.exports = {
     await interaction.deferReply({ ephemeral: true });
     try {
       const messages = await getMessagesByCommand(interaction)
-      generateExcel(messages, interaction, filename => {
-        const excelFile = new Discord.MessageAttachment(filename, filename);
-        interaction
-          .editReply({
-            content: `Here's your excel export`,
-            ephemeral: true,
-            files: [excelFile],
-          })
-          .then((r) => fs.unlinkSync(filename));
+      const promises = messages.map(async m => {
+        const messages = await getMessagesByCommand(interaction, m.id)
+        if (messages){
+          const filename = generateExcel(messages, m.id)
+          return filename        
+        }
       })
+      const files = await Promise.all(promises)
+      files.push(generateExcel(messages, interaction.channelId))
+      const filename = await zip(files, interaction.channelId)
+      const excelFile = new Discord.MessageAttachment(filename, filename);
+      interaction
+        .editReply({
+          content: `Here's your excel export`,
+          ephemeral: true,
+          files: [excelFile],
+        })
+        .then((r) => {
+          fs.unlinkSync(filename)
+          files.map(f => {
+            if(f)
+            fs.unlinkSync(f)
+          })
+        });
     } catch (e) {
       console.log(e)
       return interaction
@@ -91,10 +105,12 @@ module.exports = {
   },
 };
 
-async function getMessagesByCommand(interaction){
+async function getMessagesByCommand(interaction, channelId=null){
   const channel = interaction.client.channels.cache.get(
-    interaction.channelId
+    channelId ? channelId : interaction.channelId
   );
+  if (!channel)
+    return null
   switch (interaction.options._subcommand) {
     case "by-count":
       const limit = interaction.options.getString("count");
@@ -107,27 +123,8 @@ async function getMessagesByCommand(interaction){
   }
 }
 
-function generateExcel(messages, interaction, callback){
-  /*
-   you can just remove data and use content. 
-   Didn't remove the structure so if we wanted to switch back we can do it only by uncommenting previous code.
-  */ 
-  const data = {
-    // sheet: "messages",
-    // columns: [
-    //   { label: "Id", value: "Id" },
-    //   { label: "Type", value: "Type" },
-    //   { label: "Created_At", value: "Created_At" },
-    //   { label: "Author", value: "Author" },
-    //   { label: "Content", value: "Content" },
-    //   { label: "User_Mentions", value: "User_Mentions" },
-    //   { label: "Roles_Mentions", value: "Roles_Mentions" },
-    //   { label: "Replied_User", value: "Replied_User" },
-    //   { label: "Reference_Message", value: "Reference_Message" },
-    //   { label: "Reactions", value: "Reactions" },
-    // ],
-    content: [],
-  };
+function generateExcel(messages, channelId, callback){
+  const data = []
   messages.map(({ id, value: m }) => {
     const user_regexp = new RegExp("<@(\\d+)>", "g");
     const role_regexp = new RegExp("<@&(\\d+)>", "g");
@@ -176,16 +173,11 @@ function generateExcel(messages, interaction, callback){
         Reactions: reactions.join("&"),
       }),
     };
-    data.content.push(row);
+    data.push(row);
   });
-  // xlsx([data], {
-  //   fileName: interaction.channelId,
-  //   extraLength: 3, // A bigger number means that columns will be wider
-  //   writeOptions: {}, // Style options from https://github.com/SheetJS/sheetjs#writing-options
-  // });
-  const filename = `${interaction.channelId}.csv`
-  csvGenerator(data.content, filename)
-  callback(filename)
+  const filename = `./${channelId}.csv`
+  csvGenerator(data, filename)
+  return filename
 }
 
 
@@ -200,4 +192,31 @@ function csvGenerator(json, filename){
   csv.unshift(fields.join(',')) // add header column
   csv = csv.join('\n');
   fs.writeFileSync(filename, csv)
+}
+
+async function zip(files, filename){
+  return new Promise((reslove, reject) => {
+    filename = `./${filename}.zip`
+    const output = fs.createWriteStream(filename);
+    const archive = archiver('zip', {
+        gzip: true,
+        zlib: { level: 9 } 
+    });
+
+    archive.on('error', function(err) {
+      console.log(err)
+      reject(err)
+    });
+    archive.on('end', function(err) {
+      reslove(filename)
+    });
+
+    archive.pipe(output);
+    files.map(f => {
+      if (f)
+        archive.file(f, {name: f})
+    })
+
+    archive.finalize();
+  })
 }
