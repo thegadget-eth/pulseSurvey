@@ -72,12 +72,12 @@ module.exports = {
       const promises = messages.map(async (m) => {
         const messages = await getMessagesByCommand(interaction, m.id);
         if (messages) {
-          const filename = generateExcel(messages, m.id);
+          const filename = await generateExcel(messages, m.id);
           return filename;
         }
       });
       const files = await Promise.all(promises);
-      files.push(generateExcel(messages, interaction.channelId));
+      files.push(await generateExcel(messages, interaction.channelId));
       const filename = await zip(files, interaction.channelId);
       const excelFile = new Discord.MessageAttachment(filename, filename);
       interaction
@@ -129,9 +129,9 @@ const getInteractions = async (id, value) => {
   return [usernames.toString(), id];
 };
 
-function generateExcel(messages, channelId, callback) {
+async function generateExcel(messages, channelId, callback) {
   const data = [];
-  messages.map(async ({ id, value: m }) => {
+  const promises = messages.map(async ({ id, value: m }, index) => {
     const user_regexp = new RegExp("<@(\\d+)>", "g");
     const role_regexp = new RegExp("<@&(\\d+)>", "g");
     let reactions = [];
@@ -159,6 +159,7 @@ function generateExcel(messages, channelId, callback) {
         m.content = m.content.replace(new RegExp(s, "g"), roleName);
         return roleName;
       });
+    
     const row = {
       Id: m.id,
       Type: m.type,
@@ -169,19 +170,15 @@ function generateExcel(messages, channelId, callback) {
       Roles_Mentions: roles_mentions
         ? roles_mentions.join(",")
         : roles_mentions,
-      ...(m.type === "REPLY" && {
+      ...m.type === "REPLY" ? {
         Replied_User: `${m.mentions.repliedUser.username}#${m.mentions.repliedUser.discriminator}`,
         Reference_Message: m.reference.messageId,
-      }),
-      ...(reactions.length !== 0 && {
-        Reactions: reactions.join("&"),
-      }),
+      } : {Replied_User: '', Reference_Message: ''},
+      Reactions: reactions.join("&"),
     };
-
-    console.log("row", row);
-    data.push(row);
+    data[index] = row
   });
-  console.log("data", data);
+  await Promise.all(promises)
   const filename = `./${channelId}.csv`;
   csvGenerator(data, filename);
   return filename;
