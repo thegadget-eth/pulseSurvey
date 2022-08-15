@@ -161,6 +161,11 @@ async function generateExcel(messages, channelId, callback) {
         m.content = m.content.replace(new RegExp(s, "g"), roleName);
         return roleName;
       });
+    const reply = {Replied_User: '', Reference_Message: ''}
+    if (m.type === "REPLY" ){
+      reply.Replied_User = `${m.mentions.repliedUser.username}#${m.mentions.repliedUser.discriminator}`
+      reply.Reference_Message = m.reference.messageId
+    }
     
     const row = {
       Id: m.id,
@@ -172,11 +177,8 @@ async function generateExcel(messages, channelId, callback) {
       Roles_Mentions: roles_mentions
         ? roles_mentions.join(",")
         : roles_mentions,
-      ...m.type === "REPLY" ? {
-        Replied_User: `${m.mentions.repliedUser.username}#${m.mentions.repliedUser.discriminator}`,
-        Reference_Message: m.reference.messageId,
-      } : {Replied_User: '', Reference_Message: ''},
       Reactions: reactions.join("&"),
+      ...reply
     };
     data[index] = row
   });
