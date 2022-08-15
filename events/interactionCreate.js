@@ -10,7 +10,7 @@ module.exports = {
     try {
       if (
         interaction.member.roles.cache.some(
-          (memberRole) => memberRole.name === "role for tests"
+          (memberRole) => memberRole.name === "HealthPulse - Admin"
         )
       )
         await command.execute(interaction);
