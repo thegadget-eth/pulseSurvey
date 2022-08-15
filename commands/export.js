@@ -15,9 +15,11 @@ async function fetchMessages(channel, { limit = 500, since = null } = {}) {
     if (last_id) {
       options.before = last_id;
     }
-
+    
     const messagesMap = await channel.messages.fetch(options);
     messages = Array.from(messagesMap, ([id, value]) => ({ id, value }));
+    if (messages.length === 0)
+      return sum_messages
     if (!since) {
       sum_messages.push(...messages);
       remain -= 100;
