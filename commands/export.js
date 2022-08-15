@@ -163,8 +163,8 @@ async function generateExcel(messages, channelId, callback) {
       });
     const reply = {Replied_User: '', Reference_Message: ''}
     if (m.type === "REPLY" ){
-      reply.Replied_User = `${m.mentions.repliedUser.username}#${m.mentions.repliedUser.discriminator}`
-      reply.Reference_Message = m.reference.messageId
+      reply.Replied_User = `${m.mentions?.repliedUser?.username}#${m.mentions?.repliedUser?.discriminator}`
+      reply.Reference_Message = m.reference?.messageId
     }
     
     const row = {
