@@ -22,6 +22,16 @@ module.exports = {
         .addStringOption((option) =>
           option.setName("message").setDescription("message").setRequired(true)
         )
+        .addStringOption((option) =>
+          option
+            .setName("thread-name")
+            .setDescription("Name of the thread which we tag users with closed DMs in")
+        )
+        .addStringOption((option) =>
+          option
+            .setName("thread-reason")
+            .setDescription("Reason of the thread which we tag users with closed DMs in")
+        )
     )
     .addSubcommand((subcommand) =>
       subcommand
@@ -41,8 +51,20 @@ module.exports = {
             .setName("till")
             .setDescription("date in timestamp (milliseconds)")
         )
+        .addStringOption((option) =>
+          option
+            .setName("thread-name")
+            .setDescription("Name of the thread which we tag users with closed DMs in")
+        )
+        .addStringOption((option) =>
+          option
+            .setName("thread-reason")
+            .setDescription("Reason of the thread which we tag users with closed DMs in")
+        )
     ),
   async execute(interaction) {
+    const threadName = interaction.options.getString("thread-name");
+    const threadReason = interaction.options.getString("thread-reason");
     const guild = await interaction.client.guilds.cache.get(
       interaction.guildId
     );
@@ -63,13 +85,13 @@ module.exports = {
       else 
         members = members.filter(({ user, joinedTimestamp }) => (!user.bot && joinedTimestamp > since))
     }
-    processMessages(interaction, members, message)
+    processMessages(interaction, members, message, {threadName, threadReason})
     await interaction.reply({ content: "Surveys sent!", ephemeral: true });
   },
 };
 
 
-async function processMessages(interaction, members, message){
+async function processMessages(interaction, members, message, options={}){
   let counter = 0;
   const closedDM = []
   const interval = setInterval(async () => {
@@ -90,16 +112,17 @@ async function processMessages(interaction, members, message){
     counter++;
     if (counter >= members.length) {
       clearInterval(interval);
-      tagUsers(closedDM, channel, message)
+      if(closedDM.length > 0)
+        tagUsers(closedDM, channel, message, options)
     }
   }, 60000);
 }
 
-async function tagUsers(users, channel, message, messageSize=50){
+async function tagUsers(users, channel, message, options, messageSize=50){
   const thread = await channel.threads.create({
-    name: `Survay thread`,
+    name: options.threadName ? options.threadName : `Survay thread`,
     autoArchiveDuration: 60,
-    reason: `Needed a separate thread people with closed DMs`,
+    reason: options.threadReason ? options.threadReason : `Needed a separate thread for people with closed DMs`,
   });
   await thread.send(message)
   const interval = setInterval(async () => {
