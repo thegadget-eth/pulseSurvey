@@ -2,7 +2,7 @@ const { SlashCommandBuilder } = require("@discordjs/builders");
 const formatDistanceToNow = require("date-fns/formatDistanceToNow");
 const Discord = require("discord.js");
 const fs = require("fs");
-const { tr, fil, fi } = require("date-fns/locale");
+const { tr, fil, fi, ro } = require("date-fns/locale");
 const archiver = require("archiver");
 
 async function fetchMessages(channel, { limit = 500, since = null } = {}) {
@@ -157,7 +157,7 @@ async function generateExcel(messages, channelId, callback) {
       roles_mentions = roles_mentions.map((s) => {
         const id = s.replace(/[<>@&]/g, "");
         const role = m.mentions.roles.get(id);
-        const roleName = `@${role.name}`;
+        const roleName = role ? `@${role.name}` : `@deleted-role`;
         m.content = m.content.replace(new RegExp(s, "g"), roleName);
         return roleName;
       });
