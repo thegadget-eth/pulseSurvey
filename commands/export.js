@@ -166,7 +166,7 @@ async function generateExcel(messages, channelId, callback) {
       reply.Replied_User = `${m.mentions?.repliedUser?.username}#${m.mentions?.repliedUser?.discriminator}`
       reply.Reference_Message = m.reference?.messageId
     }
-    
+    m.content = m.content.replace(new RegExp(',', "g"), ' ');
     const row = {
       Id: m.id,
       Type: m.type,
