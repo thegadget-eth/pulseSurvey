@@ -120,7 +120,7 @@ async function processMessages(interaction, members, message, options={}){
 
 async function tagUsers(users, channel, message, options, messageSize=50){
   const thread = await channel.threads.create({
-    name: options.threadName ? options.threadName : `Survay thread`,
+    name: options.threadName ? options.threadName : `Survey thread`,
     autoArchiveDuration: 60,
     reason: options.threadReason ? options.threadReason : `Needed a separate thread for people with closed DMs`,
   });

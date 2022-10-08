@@ -40,6 +40,19 @@ async function fetchMessages(channel, { limit = 500, since = null } = {}) {
   }
 }
 
+const timeConverter = (timestamp) => {
+  var a = new Date(timestamp);
+  var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var year = a.getFullYear();
+  var month = months[a.getMonth()];
+  var date = a.getDate();
+  var hour = a.getHours();
+  var min = a.getMinutes();
+  var sec = a.getSeconds();
+  var time = date + ' ' + month + ' ' + year + ' ' + hour + ':' + min + ':' + sec ;
+  return time;
+}
+
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("export")
@@ -70,9 +83,9 @@ module.exports = {
   async execute(interaction) {
     await interaction.deferReply({ ephemeral: true });
     try {
-      const messages = await getMessagesByCommand(interaction);
+      let messages = await getMessagesByCommand(interaction);
       const promises = messages.map(async (m) => {
-        const messages = await getMessagesByCommand(interaction, m.id);
+        let messages = await getMessagesByCommand(interaction, m.id);
         if (messages) {
           const filename = await generateExcel(messages, m.id);
           return filename;
@@ -109,16 +122,23 @@ async function getMessagesByCommand(interaction, channelId = null) {
     channelId ? channelId : interaction.channelId
   );
   if (!channel) return null;
+  let messages = [];
   switch (interaction.options._subcommand) {
     case "by-count":
       const limit = interaction.options.getString("count");
-      return await fetchMessages(channel, { limit });
+      messages = await fetchMessages(channel, { limit });
+      break;
     case "by-date":
       const since = interaction.options.getString("since");
-      return await fetchMessages(channel, { since });
+      messages = await fetchMessages(channel, { since });
+      break;
     default:
       throw "wrong command";
   }
+  for(const message of messages) {
+    message.value.createdTimestamp = timeConverter(message.value.createdTimestamp)
+  }
+  return messages;
 }
 
 const getInteractions = async (id, value) => {
