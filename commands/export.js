@@ -5,11 +5,54 @@ const fs = require("fs");
 const { tr, fil, fi, ro } = require("date-fns/locale");
 const archiver = require("archiver");
 
-async function fetchMessages(guild, channel, type, { limit = 500, since = null, roles = null } = {}) {
+const waitForNextChannel = 1000; // wait for 10s
+// const waitForNextChannel = 10000 * 60; // wait for 10min
+
+async function fetchMessages(guild, channel, type, { limit = 500, since = null, roles = null, channels = null} = {}) {
   const sum_messages = [];
   let last_id;
   let remain = limit;
-  
+  // console.log(channel)
+  if(type === "channels") {
+    if(channels === null) {
+      let promise = Promise.resolve();
+      guild.channels.cache.forEach(async (channel) => {
+        promise = promise.then(async () => {
+          if(channel.messages) {
+            const messagesMap = await channel.messages.fetch();
+            messages = Array.from(messagesMap, ([id, value]) => ({ id, value }));
+            sum_messages.push(...messages);
+          }
+          return new Promise(function (resolve) {
+            setTimeout(resolve, waitForNextChannel);
+          });
+        });
+        
+      });
+      await promise;
+      return sum_messages;
+    } else {
+      const channelList = channels.split(",");
+      let promise = Promise.resolve();
+      guild.channels.cache.forEach(async (channel) => {
+        promise = promise.then(async () => {
+          if(channel.messages  && channelList.includes(channel.name)) {
+            const messagesMap = await channel.messages.fetch();
+            messages = Array.from(messagesMap, ([id, value]) => ({ id, value }));
+            sum_messages.push(...messages);
+          }
+          return new Promise(function (resolve) {
+            setTimeout(resolve, waitForNextChannel);
+          });
+        });
+        
+      });
+      await promise;
+      return sum_messages;
+    }
+
+  }
+
   while (true) {
     const options = { limit: remain > 100 ? 100 : remain };
     if (last_id) {
@@ -39,8 +82,6 @@ async function fetchMessages(guild, channel, type, { limit = 500, since = null, 
     }
     if(type === 'role') {
       const role = roles.split(",")
-      console.log(role)
-      
       for(const message of messages) {
         const userId = message.value.author.id;
         let member = await guild.members.cache.get(userId)
@@ -52,6 +93,8 @@ async function fetchMessages(guild, channel, type, { limit = 500, since = null, 
         }
      }
     }
+
+
 
     last_id = messages[messages.length - 1].id;
   }
@@ -85,6 +128,17 @@ module.exports = {
             .setName("roles")
             .setDescription("filter for roles")
             .setRequired(true)
+        )
+    )
+    .addSubcommand((subcommand) => 
+      subcommand
+        .setName("by-channel")
+        .setDescription("Export data by channels")
+        .addStringOption((option) => 
+          option
+            .setName("channels")
+            .setDescription("filter for chaneels")
+            .setRequired(false)
         )
     )
     .addSubcommand((subcommand) =>
@@ -178,8 +232,12 @@ async function getMessagesByCommand(interaction, channelId = null) {
     case "by-role":
       const roles = interaction.options.getString("roles");
       messages = await fetchMessages(guild, channel, 'role', { roles });
-
       break;
+    case "by-channel":
+      const channels = interaction.options.getString("channels");
+      messages = await fetchMessages(guild, channel, 'channels', { channels});
+      break;
+
     default:
       throw "wrong command";
   }
