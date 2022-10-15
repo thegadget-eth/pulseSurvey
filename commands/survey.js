@@ -13,10 +13,10 @@ module.exports = {
       subcommand
         .setName("by-role")
         .setDescription("Send surveys by role")
-        .addRoleOption((option) =>
+        .addStringOption((option) =>
           option
             .setName("role")
-            .setDescription("name of the role")
+            .setDescription("list of the role")
             .setRequired(true)
         )
         .addStringOption((option) =>
@@ -71,11 +71,12 @@ module.exports = {
     let members = await guild.members.cache.map((member) => member);
     const message = interaction.options.getString("message").replace(/\\n|\\r\\n/g, '\n')
     if (interaction.options._subcommand === "by-role") {
-      const role = interaction.options.getRole("role");
-      if (role.name === "@everyone")
+      const role = interaction.options.getString("role");
+      const roleList = role.split(",");
+      if (roleList.includes("@everyone"))
         members = members.filter(({ user }) => !user.bot)
       else
-        members = members.filter(({ roles, user }) => (!user.bot && roles.cache.some((memberRole) => memberRole.name === role.name)))
+        members = members.filter(({ roles, user }) => (!user.bot && roles.cache.some((memberRole) => roleList.includes(memberRole.name))))
     } 
     else {
       const since = interaction.options.getString("since");
