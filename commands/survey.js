@@ -13,6 +13,7 @@ module.exports = {
       subcommand
         .setName("by-role")
         .setDescription("Send surveys by role")
+        //For multi survey role, change into addStringOption from addRoleOption
         .addStringOption((option) =>
           option
             .setName("role")
@@ -71,11 +72,14 @@ module.exports = {
     let members = await guild.members.cache.map((member) => member);
     const message = interaction.options.getString("message").replace(/\\n|\\r\\n/g, '\n')
     if (interaction.options._subcommand === "by-role") {
+      // get the role list
       const role = interaction.options.getString("role");
+      // split roles by comma
       const roleList = role.split(",");
       if (roleList.includes("@everyone"))
         members = members.filter(({ user }) => !user.bot)
       else
+        //get members who have at least one role in roleList
         members = members.filter(({ roles, user }) => (!user.bot && roles.cache.some((memberRole) => roleList.includes(memberRole.name))))
     } 
     else {
