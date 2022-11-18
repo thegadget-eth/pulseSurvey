@@ -5,20 +5,23 @@ const fs = require("fs");
 const { tr, fil, fi, ro } = require("date-fns/locale");
 const archiver = require("archiver");
 
-const waitForNextChannel = 1000; // wait for 10s
+
+const waitForNextChannel = 1000; // dealy for extracting from channels, wait 10s
 // const waitForNextChannel = 10000 * 60; // wait for 10min
 
 async function fetchMessages(guild, channel, type, { limit = 500, since = null, roles = null, channels = null} = {}) {
   const sum_messages = [];
   let last_id;
   let remain = limit;
-  // console.log(channel)
-  if(type === "channels") {
+  // for extracting from all channels
+  if(type === "channels") { 
     if(channels === null) {
       let promise = Promise.resolve();
+      // iterate all channels
       guild.channels.cache.forEach(async (channel) => {
         promise = promise.then(async () => {
           if(channel.messages) {
+            // fetch messages from the channel
             const messagesMap = await channel.messages.fetch();
             messages = Array.from(messagesMap, ([id, value]) => ({ id, value }));
             sum_messages.push(...messages);
@@ -32,11 +35,14 @@ async function fetchMessages(guild, channel, type, { limit = 500, since = null, 
       await promise;
       return sum_messages;
     } else {
+      // for extracting from several channels
       const channelList = channels.split(",");
       let promise = Promise.resolve();
       guild.channels.cache.forEach(async (channel) => {
         promise = promise.then(async () => {
+          // iterate all channels and find channel in channelList
           if(channel.messages  && channelList.includes(channel.name)) {
+            // fetch messages from the channel
             const messagesMap = await channel.messages.fetch();
             messages = Array.from(messagesMap, ([id, value]) => ({ id, value }));
             sum_messages.push(...messages);
@@ -81,21 +87,21 @@ async function fetchMessages(guild, channel, type, { limit = 500, since = null, 
       sum_messages.push(...messages);
     }
     if(type === 'role') {
+      // for extracting from roles.
       const role = roles.split(",")
       for(const message of messages) {
         const userId = message.value.author.id;
+        // find members whose role is in given role list.
         let member = await guild.members.cache.get(userId)
         if(member && message !== undefined) {
           const hasRole = member.roles.cache.some(r => {
             return role.includes(r.name);
           })
+          // collect messages
           if(hasRole) sum_messages.push(message);
         }
      }
     }
-
-
-
     last_id = messages[messages.length - 1].id;
   }
   return sum_messages
@@ -130,6 +136,7 @@ module.exports = {
             .setRequired(true)
         )
     )
+    // extrac from channels
     .addSubcommand((subcommand) => 
       subcommand
         .setName("by-channel")
@@ -167,14 +174,6 @@ module.exports = {
     await interaction.deferReply({ ephemeral: true });
     try {
       let messages = await getMessagesByCommand(interaction);
-      // const promises = messages.map(async (m) => {
-      //   let messages = await getMessagesByCommand(interaction, m.id);
-      //   if (messages) {
-      //     const filename = await generateExcel(messages, m.id);
-      //     return filename;
-      //   }
-      // });
-      // const files = await Promise.all(promises);
       if(messages.length === 0) {
         
         interaction
