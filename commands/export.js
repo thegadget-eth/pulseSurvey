@@ -5,48 +5,37 @@ const fs = require("fs");
 const { tr, fil, fi, ro } = require("date-fns/locale");
 const archiver = require("archiver");
 
-
-const waitForNextChannel = 1000; // dealy for extracting from channels, wait 10s
+const waitForNextChannel = 1000; // wait for 10s
 // const waitForNextChannel = 10000 * 60; // wait for 10min
 
+/**
+ * @dev fetch messages by filter
+ * @param guild discord guild
+ * @param channel current channel
+ * @param type fetching message type. can be an element of ["channels", "count", "date", "role"] 
+ * @param limit limit fetching messages
+ * @param since filtering param by date
+ * @param roles filtering param by roles
+ * @param channels filtering param by channel
+ */
 async function fetchMessages(guild, channel, type, { limit = 500, since = null, roles = null, channels = null} = {}) {
-  const sum_messages = [];
+  const sum_messages = []; // for collecting messages
   let last_id;
   let remain = limit;
-  // for extracting from all channels
-  if(type === "channels") { 
+  // console.log(channel)
+  if(type === "channels") {
+    // fetch messages from all channles
     if(channels === null) {
       let promise = Promise.resolve();
       // iterate all channels
       guild.channels.cache.forEach(async (channel) => {
         promise = promise.then(async () => {
           if(channel.messages) {
-            // fetch messages from the channel
             const messagesMap = await channel.messages.fetch();
             messages = Array.from(messagesMap, ([id, value]) => ({ id, value }));
             sum_messages.push(...messages);
           }
-          return new Promise(function (resolve) {
-            setTimeout(resolve, waitForNextChannel);
-          });
-        });
-        
-      });
-      await promise;
-      return sum_messages;
-    } else {
-      // for extracting from several channels
-      const channelList = channels.split(",");
-      let promise = Promise.resolve();
-      guild.channels.cache.forEach(async (channel) => {
-        promise = promise.then(async () => {
-          // iterate all channels and find channel in channelList
-          if(channel.messages  && channelList.includes(channel.name)) {
-            // fetch messages from the channel
-            const messagesMap = await channel.messages.fetch();
-            messages = Array.from(messagesMap, ([id, value]) => ({ id, value }));
-            sum_messages.push(...messages);
-          }
+          // dealy between fetching channels
           return new Promise(function (resolve) {
             setTimeout(resolve, waitForNextChannel);
           });
@@ -56,10 +45,33 @@ async function fetchMessages(guild, channel, type, { limit = 500, since = null, 
       await promise;
       return sum_messages;
     }
-
+    // fetch message from specific channels
+    else {
+      const channelList = channels.split(",");
+      let promise = Promise.resolve();
+      // iterate all channles
+      guild.channels.cache.forEach(async (channel) => {
+        promise = promise.then(async () => {
+          if(channel.messages  && channelList.includes(channel.name)) {
+            const messagesMap = await channel.messages.fetch();
+            messages = Array.from(messagesMap, ([id, value]) => ({ id, value }));
+            sum_messages.push(...messages);
+          }
+          // dealy between fetching channels
+          return new Promise(function (resolve) {
+            setTimeout(resolve, waitForNextChannel);
+          });
+        });
+        
+      });
+      await promise;
+      return sum_messages;
+    }
   }
 
+  // for specific one channel
   while (true) {
+    // split for number of messages to fetch with limit
     const options = { limit: remain > 100 ? 100 : remain };
     if (last_id) {
       options.before = last_id;
@@ -70,6 +82,7 @@ async function fetchMessages(guild, channel, type, { limit = 500, since = null, 
 
     if (messages.length === 0)
       return sum_messages
+    // export by-count
     if (type === 'count') {
       sum_messages.push(...messages);
       remain -= 100;
@@ -77,6 +90,7 @@ async function fetchMessages(guild, channel, type, { limit = 500, since = null, 
         return sum_messages;
       }
     }
+    // export by-date
     if(type === 'date') {
       for (let i = 0; i < messages.length; i++) {
         if (messages[i].value.createdTimestamp < since) {
@@ -86,18 +100,17 @@ async function fetchMessages(guild, channel, type, { limit = 500, since = null, 
       }
       sum_messages.push(...messages);
     }
+    // export by-role
     if(type === 'role') {
-      // for extracting from roles.
       const role = roles.split(",")
       for(const message of messages) {
+        // get the member id of each message
         const userId = message.value.author.id;
-        // find members whose role is in given role list.
         let member = await guild.members.cache.get(userId)
         if(member && message !== undefined) {
           const hasRole = member.roles.cache.some(r => {
             return role.includes(r.name);
           })
-          // collect messages
           if(hasRole) sum_messages.push(message);
         }
      }
@@ -107,6 +120,12 @@ async function fetchMessages(guild, channel, type, { limit = 500, since = null, 
   return sum_messages
 }
 
+/**
+ * @dev convert timestamp to formated date
+ * @param timestamp given timpstamp
+ * @result_format dd month(as string) yyyy HH:MM:SS
+ * @result_example 31 Oct 2022 15:15:26
+ */
 const timeConverter = (timestamp) => {
   var a = new Date(timestamp);
   var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -125,6 +144,11 @@ module.exports = {
     .setName("export")
     .setDescription("Get excel export")
     .setDMPermission(false)
+    /**
+     * export by-role <roles> 
+     * @dev fetch messages by roles
+     * @param roles type of string and required
+     */
     .addSubcommand((subcommand) => 
       subcommand
         .setName("by-role")
@@ -136,7 +160,12 @@ module.exports = {
             .setRequired(true)
         )
     )
-    // extrac from channels
+    /**
+     * export by-channel <channels> 
+     * @dev fetch messages by channels
+     * @param channels type of string and required
+     *                 if not specified, fetch from all channels
+     */
     .addSubcommand((subcommand) => 
       subcommand
         .setName("by-channel")
@@ -148,6 +177,11 @@ module.exports = {
             .setRequired(false)
         )
     )
+    /**
+     * export by-count <count> 
+     * @dev fetch messages that number of messages is limited to count
+     * @param count type of string and required
+     */
     .addSubcommand((subcommand) =>
       subcommand
         .setName("by-count")
@@ -159,6 +193,11 @@ module.exports = {
             .setRequired(true)
         )
     )
+    /**
+     * export by-date <since> 
+     * @dev fetch messages that number of messages is limited to count
+     * @param since type of string and required
+     */
     .addSubcommand((subcommand) =>
       subcommand
         .setName("by-date")
@@ -170,21 +209,23 @@ module.exports = {
             .setRequired(true)
         )
     ),
+  // execute the command
   async execute(interaction) {
     await interaction.deferReply({ ephemeral: true });
     try {
       let messages = await getMessagesByCommand(interaction);
+      
       if(messages.length === 0) {
-        
         interaction
         .editReply({
           content: `No match`,
           ephemeral: true,
         })
       } else {
+        // generate csv files and zip into one file
         const files = [];
-        files.push(await generateExcel(messages, interaction.channelId));
-        const filename = await zip(files, interaction.channelId);
+        files.push(await generateExcel(messages, interaction));
+        const filename = await zip(files, await getZipName(interaction));
         const excelFile = new Discord.MessageAttachment(filename, filename);
         interaction
           .editReply({
@@ -209,11 +250,14 @@ module.exports = {
   },
 };
 
+/**
+ * get messages by extracting type
+ */
+
 async function getMessagesByCommand(interaction, channelId = null) {
   const guild = await interaction.client.guilds.cache.get(
     interaction.guildId
   );
-
   const channel = interaction.client.channels.cache.get(
     channelId ? channelId : interaction.channelId
   );
@@ -240,25 +284,68 @@ async function getMessagesByCommand(interaction, channelId = null) {
     default:
       throw "wrong command";
   }
+  // after getting all the messages, convert time format
   for(const message of messages) {
     message.value.createdTimestamp = timeConverter(message.value.createdTimestamp)
   }
   return messages;
 }
 
+// get users with id and value
 const getInteractions = async (id, value) => {
   let usernames = [];
   let users = await value.users.fetch();
   users = users.forEach((user) => {
     usernames.push(`${user.username}#${user.discriminator}`);
   });
-  // console.log("users", id, value);
   return [usernames.toString(), id];
 };
 
-async function generateExcel(messages, channelId, callback) {
+const convertDateToDDMMYY = (d) =>{
+  // convert 2 digit integer
+  const pad = (s) => { return (s < 10) ? '0' + s : s; }
+  return '' + pad(d.getDate()) + pad(d.getMonth()+1) +  pad(d.getFullYear());
+}
+
+/**
+ * 
+ * @param interaction discord interaction 
+ * @returns name of zip file which contains extraction info
+ * @format Servername_ExtractionDate
+ */
+const getZipName = async (interaction) => {
+  const guild = await interaction.client.guilds.cache.get(
+    interaction.guildId
+  );
+  const servername = guild.name;
+  const date = convertDateToDDMMYY(new Date());
+  const filename = `${servername}_${date}`;
+
+  console.log("======================>", filename);
+  return filename;
+}
+
+/**
+ * 
+ * @param interaction discord interaction  
+ * @returns name of csv file with fetched messages from channels or thread 
+ */
+const getFileName = async (interaction) => {
+  const channelId = interaction.channelId;
+  const filename = `./${channelId}.csv`;
+  return filename;
+}
+
+
+/**
+ * @dev generate excel file from getting messages
+ * @param messages fetched messages
+ * @param channelId channel id from which execute fetching
+ */
+async function generateExcel(messages, interaction, callback) {
 
   const data = [];
+  // generate json data from messages
   const promises = messages.map(async ({ id, value: m }, index) => {
     const user_regexp = new RegExp("<@(\\d+)>", "g");
     const role_regexp = new RegExp("<@&(\\d+)>", "g");
@@ -288,11 +375,13 @@ async function generateExcel(messages, channelId, callback) {
         return roleName;
       });
     const reply = {Replied_User: '', Reference_Message: ''}
+    // check message type whether is reply or not
     if (m.type === "REPLY" ){
       reply.Replied_User = `${m.mentions?.repliedUser?.username}#${m.mentions?.repliedUser?.discriminator}`
       reply.Reference_Message = m.reference?.messageId
     }
     m.content = m.content.replace(new RegExp(',', "g"), ' ');
+    // make one row data
     const row = {
       Id: m.id,
       Type: m.type,
@@ -309,11 +398,16 @@ async function generateExcel(messages, channelId, callback) {
     data[index] = row
   });
   await Promise.all(promises)
-  const filename = `./${channelId}.csv`;
+  const filename = await getFileName(interaction);
+  
+  //write data in csv file
   csvGenerator(data, filename);
   return filename;
 }
-
+/**
+ * @dev write json data to filename
+ * @param filename cvs file name
+ */
 function csvGenerator(json, filename) {
   const fields = Object.keys(json[0]);
   const replacer = function (key, value) {
@@ -331,9 +425,11 @@ function csvGenerator(json, filename) {
   fs.writeFileSync(filename, csv);
 }
 
+// zip files into one file
 async function zip(files, filename) {
+  console.log({filename})
   return new Promise((reslove, reject) => {
-    filename = `./${filename}.zip`;
+    filename = `${filename}.zip`;
     const output = fs.createWriteStream(filename);
     const archive = archiver("zip", {
       gzip: true,
