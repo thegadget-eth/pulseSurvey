@@ -276,8 +276,9 @@ module.exports = {
         const filename = await getZipName(interaction)
         const files = await collectFiles(messages, filename);
         
-        await zip(files, filename);
-        const excelFile = new Discord.MessageAttachment(filename, filename);
+        const zipFile = await zip(files, filename);
+        const excelFile = new Discord.MessageAttachment(zipFile, zipFile);
+
         interaction
           .editReply({
             content: `Here's your excel export`,
@@ -285,14 +286,16 @@ module.exports = {
             files: [excelFile],
           })
           .then((r) => {
-            fs.unlinkSync(filename);
-            files.map((f) => {
-              if (f) fs.unlinkSync(f);
-            });
+            console.log("GOOD")
+            fs.rmSync(filename, {recursive: true});
+            fs.unlinkSync(zipFile);
+            fs.unlinkSync('FailedChannelList.txt');
+            fs.unlinkSync('SucceedChannelList.txt');
           });
+        
       }
     } catch (e) {
-      console.log(e);
+      console.log("====", e);
       return interaction.editReply({
         content: `Something went wrong!`,
         ephemeral: true,
@@ -378,11 +381,11 @@ const getZipName = async (interaction) => {
 
 /**
  *
- * @param interaction discord interaction
+ * @param id channel or thread id
  * @returns name of csv file with fetched messages from channels or thread
  */
-const getFileName = async (interaction) => {
-  const channelId = interaction.channelId;
+const getFileName = (id) => {
+  const channelId = id;
   const filename = `${channelId}.csv`;
   return filename;
 };
@@ -392,7 +395,7 @@ const getFileName = async (interaction) => {
  * @param messages fetched messages
  * @param channelId channel id from which execute fetching
  */
-const generateExcel = async (messages, interaction, filename) => {
+const generateExcel = async (messages, filename) => {
   const data = [];
   // generate json data from messages
   const promises = messages.map(async ({ id, value: m }, index) => {
@@ -477,32 +480,45 @@ const csvGenerator = (json, filename) => {
 }
 
 const collectFiles = async (messages, filename) => {
-  console.log(messages["succeedChannelList"]);
   const FailedChannelListFile = 'FailedChannelList.txt';
   const SucceedChannelListFile = 'SucceedChannelList.txt';
   await fs.writeFileSync(FailedChannelListFile, messages["failedChannelList"].join('\n'));
   await fs.writeFileSync(SucceedChannelListFile, messages["succeedChannelList"].join('\n'));
-  const channels = messages.channels;
-  channels.map((channel) => {
-    fs.mkdirSync(`${filename}`)
-
-  })
-
-
-
   const files = {
-    "failed": FailedChannelListFile,
-    "succeed": SucceedChannelListFile,
-    "channels": [
-      
-    ]
+    failed: FailedChannelListFile,
+    succeed: SucceedChannelListFile,
+    channels: []
   }
+  const channels = messages.channels;
+  const promises = await channels.map(async (channel) => {
+    const channelDir = `${filename}\\${channel.channelName}`;
+    await fs.mkdirSync(channelDir, { recursive: true });
+    const mainFile = await generateExcel(channel.messages, `${channelDir}\\${getFileName(channel.channelId)}`);
+    const channelFiles = {
+      main: mainFile,
+      threads: []
+    }
+    const threads = channel.threads ?? [];
+    const threadPromise = threads.map(async thread => {
+      const threadName = thread.threadName;
+      const threadDir = `${channelDir}\\threads\\${threadName}`;
+      await fs.mkdirSync(threadDir, { recursive: true });
+      const threadfile = await generateExcel(thread.messages, `${threadDir}\\${getFileName(thread.threadeId)}`);
+      channelFiles.threads.push(threadfile);
+    });
+    await Promise.all(threadPromise);
+    files.channels.push(channelFiles)
+  })
+  await Promise.all(promises);
+  // console.log(files);
+
+
+  return files
 }
 
 // zip files into one file
 const zip = async (files, filename) => {
   const zipFile = `${filename}.zip`;
-  console.log({ filename });
   return new Promise((reslove, reject) => {
     
     const output = fs.createWriteStream(zipFile);
@@ -524,11 +540,7 @@ const zip = async (files, filename) => {
     archive.append(null, { name: root });
     archive.file('FailedChannelList.txt');
     archive.file('SucceedChannelList.txt');
-    archive.directory('events', 'events');  
-    // files.map((f) => {
-    //   if (f) archive.file(f, { name: f });
-    // });
-
+    archive.directory(filename, filename);  
     archive.finalize();
   });
 }
