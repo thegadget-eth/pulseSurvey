@@ -51,7 +51,6 @@ const fetchMessages = async (
   }; // for collecting messages
   let last_id;
   let remain = limit;
-  // console.log(channel)
   if (type === "channels") {
     let promise = Promise.resolve();
     const channelList = channels == null ? null : channels.split(",");
@@ -67,10 +66,19 @@ const fetchMessages = async (
           try {
             // fetch messages from this main channel
             const messagesMap = await channel.messages.fetch();
+            let threadNameToId = {
+
+            };
             messages = Array.from(messagesMap, ([id, value]) => ({
               id,
               value,
             }));
+            messages.map(({id, value}) => {
+                if(value.type === 'THREAD_CREATED') {
+                  threadNameToId[value.content] = value.id;
+                }
+            })
+            
             sum_messages["channels"].push({
               channelName: channelName,
               channelId: channel.id,
@@ -79,8 +87,8 @@ const fetchMessages = async (
             });
             const sz = sum_messages["channels"].length;
             // iterate all the threads in this channel
-            const { threads } = await channel.threads.fetch();
-            for (const thread of threads.values()) {
+            const threads = channel.threads.cache;
+            threads.forEach(async (thread) => {
               // fetch messages from channel
               let threadMessage = await thread.messages.fetch();
               threadMessage = Array.from(threadMessage, ([id, value]) => ({
@@ -89,12 +97,13 @@ const fetchMessages = async (
               }));
               sum_messages["channels"][sz - 1]["threads"].push({
                 threadName: thread.name,
-                threadeId: thread.id,
+                threadeId: threadNameToId[thread.name],
                 messages: threadMessage,
               });
-            }
+            });
             sum_messages["succeedChannelList"].push(channelName);
           } catch (e) {
+            console.log(e);
             sum_messages["failedChannelList"].push(channelName);
           }
         }
@@ -105,7 +114,6 @@ const fetchMessages = async (
       });
     });
     await promise;
-    console.log(sum_messages);
     return sum_messages;
   }
   if (type === "role") {
@@ -491,7 +499,7 @@ const generateExcel = async (messages, filename) => {
     const row = {
       Id: m.id,
       Type: m.type,
-      Created_At: m.createdTimestamp,
+      Created_At: timeConverter(m.createdTimestamp),
       Author: `${m.author.username}#${m.author.discriminator}`,
       Content: m.content,
       User_Mentions: users_mentions ? users_mentions.join(",") : users_mentions,
@@ -516,11 +524,6 @@ const generateExcel = async (messages, filename) => {
  * @param filename cvs file name
  */
 const csvGenerator = (json, filename) => {
-  //change time format as human readable
-  json.map((data) => {
-    data.Created_At = timeConverter(data.Created_At);
-    return data;
-  });
   if(json.length > 0) {
     const fields = Object.keys(json[0]);
     const replacer = function (key, value) {
@@ -550,10 +553,8 @@ const csvGenerator = (json, filename) => {
  *      -channel1
  *        -channelid.csv
  *        -threads
- *          -thread1
- *           -thread1id.csv
- *           -thread2id.csv
- *          -thread2
+ *          -thread1id.csv
+ *          -thread2id.csv
  *      -channel2
  *    -FailedChannelList.txt
  *    -SucceedChannelList.txt
@@ -590,12 +591,11 @@ const collectFiles = async (messages, filename, type) => {
       main: mainFile,
       threads: [],
     };
+    const threadDir = `${channelDir}\\threads`;
     const threads = channel.threads ?? [];
-    //iter therads
+    //iterate threads
+    await fs.mkdirSync(threadDir, { recursive: true });
     const threadPromise = threads.map(async (thread) => {
-      const threadName = thread.threadName;
-      const threadDir = `${channelDir}\\threads\\${threadName}`;
-      await fs.mkdirSync(threadDir, { recursive: true });
       // generate file and save for thread
       const threadfile = await generateExcel(
         thread.messages,
