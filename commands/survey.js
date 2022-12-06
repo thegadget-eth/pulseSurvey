@@ -176,23 +176,6 @@ const isDigit = (c) => {
  * @exampleOutput  ['1015314731352989707', 'everyone', '968122690118512720']
  */
 const extractRoles = (roles) => {
-  let ans = [];
-  let i = 0;
-  while(i < roles.length) {
-    let newRole = "";
-    if(roles[i] === '@') {
-      i++;
-      while(roles[i] != '@' && !(roles[i] === '<'&& roles[i+1] === '@') && i < roles.length) newRole+=roles[i], i++;
-    }
-    else if(i < roles.length - 1 && roles[i] === '<' && roles[i+1] === '@') {
-      while(i < roles.length && !isDigit(roles[i])) i++;
-      while(roles[i] != '>' && i < roles.length) newRole+=roles[i], i++;
-    }
-    else {
-      i++;
-      continue;
-    }
-    ans.push(newRole);
-  }
-  return ans;
+  const roleList = roles.split(/<@&(\d+)>|<@(\d+)>|@([\w\d\-\. ]+)|\s/).filter(Boolean);
+  return roleList;
 }
