@@ -3,6 +3,7 @@ const formatDistanceToNow = require("date-fns/formatDistanceToNow");
 const Discord = require("discord.js");
 const fs = require("fs");
 const archiver = require("archiver");
+const path = require("path");
 
 const waitForNextChannel = 1000; // wait for 1s
 // const waitForNextChannel = 10000 * 60; // wait for 10min
@@ -194,33 +195,9 @@ const isDigit = (c) => {
  * @exampleOutput  ['1015314731352989707', 'everyone', '968122690118512720']
  */
 const extractRoles = (roles) => {
-  let ans = [];
-  let i = 0;
-  while (i < roles.length) {
-    let newRole = "";
-    if (roles[i] === "@") {
-      i++;
-      while (
-        roles[i] != "@" &&
-        !(roles[i] === "<" && roles[i + 1] === "@") &&
-        i < roles.length
-      )
-        (newRole += roles[i]), i++;
-    } else if (
-      i < roles.length - 1 &&
-      roles[i] === "<" &&
-      roles[i + 1] === "@"
-    ) {
-      while (i < roles.length && !isDigit(roles[i])) i++;
-      while (roles[i] != ">" && i < roles.length) (newRole += roles[i]), i++;
-    } else {
-      i++;
-      continue;
-    }
-    ans.push(newRole);
-  }
-  return ans;
-};
+  const roleList = roles.split(/<@&(\d+)>|<@(\d+)>|@([\w\d\-\. ]+)|\s/).filter(Boolean);
+  return roleList;
+}
 
 /**
  * @dev convert timestamp to formated date
@@ -337,6 +314,7 @@ module.exports = {
         });
       } else {
         const filename = await getZipName(interaction);
+        
         // generate all files and dirs from extraction and save it in one folder
         const files = await collectFiles(messages, filename, messages.type);
         // zip collected files
@@ -351,8 +329,8 @@ module.exports = {
           })
           .then((r) => {
             // remove temporary files
-            fs.rmSync('./' + filename, { recursive: true, force: true});
-            fs.unlinkSync('./' + zipFile);
+            fs.rmSync(filename, { recursive: true, force: true});
+            fs.unlinkSync(zipFile);
             if(messages.type === "channel") {
               fs.unlinkSync("./FailedChannelList.txt");
               fs.unlinkSync("./SucceedChannelList.txt");
@@ -435,7 +413,6 @@ const getZipName = async (interaction) => {
   const servername = guild.name;
   const date = convertDateToDDMMYY(new Date());
   const filename = `${servername}_${date}`;
-
   return filename;
 };
 
@@ -560,8 +537,8 @@ const csvGenerator = (json, filename) => {
  *    -SucceedChannelList.txt
  */
 const collectFiles = async (messages, filename, type) => {
-  const FailedChannelListFile = "FailedChannelList.txt";
-  const SucceedChannelListFile = "SucceedChannelList.txt";
+  const FailedChannelListFile = "./FailedChannelList.txt";
+  const SucceedChannelListFile = "./SucceedChannelList.txt";
   // only create succeed | failed channel list when export by-channel
   if(type === "channel") {
     await fs.writeFileSync(
@@ -581,17 +558,18 @@ const collectFiles = async (messages, filename, type) => {
   const channels = messages.channels;
   // iterate channels
   const promises = await channels.map(async (channel) => {
-    const channelDir = `${filename}\\${channel.channelName}`;
+    const channelDir = path.join(filename, channel.channelName);
+    await fs.mkdirSync(filename, { recursive: true });
     await fs.mkdirSync(channelDir, { recursive: true });
     const mainFile = await generateExcel(
       channel.messages,
-      `${channelDir}\\${getFileName(channel.channelId)}`
+      path.join(channelDir, getFileName(channel.channelId))
     );
     const channelFiles = {
       main: mainFile,
       threads: [],
     };
-    const threadDir = `${channelDir}\\threads`;
+    const threadDir = path.join(channelDir, 'threads');
     const threads = channel.threads ?? [];
     //iterate threads
     await fs.mkdirSync(threadDir, { recursive: true });
@@ -599,7 +577,7 @@ const collectFiles = async (messages, filename, type) => {
       // generate file and save for thread
       const threadfile = await generateExcel(
         thread.messages,
-        `${threadDir}\\${getFileName(thread.threadeId)}`
+        path.join(threadDir, getFileName(thread.threadeId))
       );
       channelFiles.threads.push(threadfile);
     });
@@ -631,7 +609,7 @@ const zip = async (files, filename, type) => {
 
     archive.pipe(output);
     // make dir to collect into one folder
-    const root = filename + "/";
+    const root = filename + '/'
     archive.append(null, { name: root });
     if(type == "channel") {
       archive.file("FailedChannelList.txt");
