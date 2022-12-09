@@ -45,16 +45,18 @@ const fetchMessages = async (
   { limit = 500, since = null, roles = null, channels = null } = {}
 ) => {
   let sum_messages = {
-    type: "channel",
+    type: type,
     succeedChannelList: [],
     failedChannelList: [],
     channels: [],
   }; // for collecting messages
+
+  if(type === "date" || type === "count") sum_messages = [];
   let last_id;
   let remain = limit;
   if (type === "channels") {
     let promise = Promise.resolve();
-    const channelList = channels == null ? null : channels.split(",");
+    const channelList = channels == null ? null : channels.split(/[, ]+/);
     // iterate all channels
     guild.channels.cache.forEach(async (channel) => {
       const channelName = channel.name;
@@ -115,10 +117,10 @@ const fetchMessages = async (
       });
     });
     await promise;
+    // console.log(sum_messages)
     return sum_messages;
   }
   if (type === "role") {
-    sum_messages.type = "role";
     sum_messages.channels.push({
       channelName: channel.name,
       channelId: channel.id,
@@ -182,11 +184,6 @@ const fetchMessages = async (
   }
   return sum_messages;
 };
-
-// check whether c is digit or not
-const isDigit = (c) => {
-  return c >= '0' && c <= '9';
-}
 
 /**
  * @dev parse roles string to get separate role
@@ -307,35 +304,64 @@ module.exports = {
     await interaction.deferReply({ ephemeral: true });
     try {
       let messages = await getMessagesByCommand(interaction);
-      if (Object.keys(messages).length == 0) {
-        interaction.editReply({
-          content: `No match`,
-          ephemeral: true,
-        });
-      } else {
-        const filename = await getZipName(interaction);
-        
-        // generate all files and dirs from extraction and save it in one folder
-        const files = await collectFiles(messages, filename, messages.type);
-        // zip collected files
-        const zipFile = await zip(files, filename, messages.type);
-        const excelFile = new Discord.MessageAttachment(zipFile, zipFile);
-
-        interaction
-          .editReply({
-            content: `Here's your excel export`,
+      let type = interaction.options._subcommand ;
+      if(type === "by-channel" || type === "by-role") {
+        if (Object.keys(messages).length == 0) {
+          interaction.editReply({
+            content: `No match`,
             ephemeral: true,
-            files: [excelFile],
-          })
-          .then((r) => {
-            // remove temporary files
-            fs.rmSync(filename, { recursive: true, force: true});
-            fs.unlinkSync(zipFile);
-            if(messages.type === "channel") {
-              fs.unlinkSync("./FailedChannelList.txt");
-              fs.unlinkSync("./SucceedChannelList.txt");
-            }
           });
+        } else {
+          const filename = await getZipName(interaction);
+          
+          // generate all files and dirs from extraction and save it in one folder
+          const files = await collectFiles(messages, filename, messages.type);
+          // zip collected files
+          const zipFile = await zip(files, filename, type);
+          const excelFile = new Discord.MessageAttachment(zipFile, zipFile);
+  
+          interaction
+            .editReply({
+              content: `Here's your excel export`,
+              ephemeral: true,
+              files: [excelFile],
+            })
+            .then((r) => {
+              // remove temporary files
+              fs.rmSync(filename, { recursive: true, force: true});
+              fs.unlinkSync(zipFile);
+              if(messages.type === "channels") {
+                fs.unlinkSync("./FailedChannelList.txt");
+                fs.unlinkSync("./SucceedChannelList.txt");
+              }
+            });
+        }
+      } else {
+        if(messages.length === 0) {
+        
+          interaction
+          .editReply({
+            content: `No match`,
+            ephemeral: true,
+          })
+        } else {
+          const files = [];
+          files.push(await generateExcelForOne(messages, interaction.channelId, type));
+          const filename = await zip(files, await getZipName(interaction), type);
+          const excelFile = new Discord.MessageAttachment(filename, filename);
+          interaction
+            .editReply({
+              content: `Here's your excel export`,
+              ephemeral: true,
+              files: [excelFile],
+            })
+            .then((r) => {
+              fs.unlinkSync(filename);
+              files.map((f) => {
+                if (f) fs.unlinkSync(f);
+              });
+            });
+        }
       }
     } catch (e) {
       console.log("====", e);
@@ -429,6 +455,7 @@ const getFileName = (id) => {
 
 /**
  * @dev generate excel file from getting messages
+ * @use /export by-channel, /export by-role
  * @param messages fetched messages
  * @param channelId channel id from which execute fetching
  */
@@ -495,6 +522,70 @@ const generateExcel = async (messages, filename) => {
   csvGenerator(data, filename);
   return filename;
 };
+
+/**
+ * @dev generate excel file from getting messages
+ * @use /export by-date, /export by-count
+ * @param messages fetched messages
+ * @param channelId channel id from which execute fetching
+ */
+const generateExcelForOne = async(messages, channelId, callback) => {
+
+  const data = [];
+  const promises = messages.map(async ({ id, value: m }, index) => {
+    const user_regexp = new RegExp("<@(\\d+)>", "g");
+    const role_regexp = new RegExp("<@&(\\d+)>", "g");
+    let reactions = [];
+    m.reactions.cache.forEach((value, id) => {
+      reactions.push(getInteractions(id, value));
+    });
+
+    reactions = await Promise.all(reactions);
+
+    let users_mentions = m.content.match(user_regexp);
+    let roles_mentions = m.content.match(role_regexp);
+    if (users_mentions)
+      users_mentions = users_mentions.map((s) => {
+        const id = s.replace(/[<>@]/g, "");
+        const user = m.mentions.users.get(id);
+        const username = `${user.username}#${user.discriminator}`;
+        m.content = m.content.replace(new RegExp(s, "g"), username);
+        return username;
+      });
+    if (roles_mentions)
+      roles_mentions = roles_mentions.map((s) => {
+        const id = s.replace(/[<>@&]/g, "");
+        const role = m.mentions.roles.get(id);
+        const roleName = role ? `@${role.name}` : `@deleted-role`;
+        m.content = m.content.replace(new RegExp(s, "g"), roleName);
+        return roleName;
+      });
+    const reply = {Replied_User: '', Reference_Message: ''}
+    if (m.type === "REPLY" ){
+      reply.Replied_User = `${m.mentions?.repliedUser?.username}#${m.mentions?.repliedUser?.discriminator}`
+      reply.Reference_Message = m.reference?.messageId
+    }
+    m.content = m.content.replace(new RegExp(',', "g"), ' ');
+    const row = {
+      Id: m.id,
+      Type: m.type,
+      Created_At: timeConverter(m.createdTimestamp),
+      Author: `${m.author.username}#${m.author.discriminator}`,
+      Content: m.content,
+      User_Mentions: users_mentions ? users_mentions.join(",") : users_mentions,
+      Roles_Mentions: roles_mentions
+        ? roles_mentions.join(",")
+        : roles_mentions,
+      Reactions: reactions.join("&"),
+      ...reply
+    };
+    data[index] = row
+  });
+  await Promise.all(promises)
+  const filename = `${channelId}.csv`;
+  csvGenerator(data, filename);
+  return filename;
+}
 /**
  * @dev write json data to filename
  * @param json data to be written
@@ -540,7 +631,7 @@ const collectFiles = async (messages, filename, type) => {
   const FailedChannelListFile = "./FailedChannelList.txt";
   const SucceedChannelListFile = "./SucceedChannelList.txt";
   // only create succeed | failed channel list when export by-channel
-  if(type === "channel") {
+  if(type === "channels") {
     await fs.writeFileSync(
       FailedChannelListFile,
       messages["failedChannelList"].join("\n")
@@ -609,13 +700,20 @@ const zip = async (files, filename, type) => {
 
     archive.pipe(output);
     // make dir to collect into one folder
-    const root = filename + '/'
-    archive.append(null, { name: root });
-    if(type == "channel") {
-      archive.file("FailedChannelList.txt");
-      archive.file("SucceedChannelList.txt");
+    if(type === "by-count" || type === "by-date") {
+      files.map((f) => {
+        if (f) archive.file(f, { name: f });
+      });
+    } else {
+      const root = filename + '/';
+  
+      archive.append(null, { name: root });
+      if(type == "by-channel") {
+        archive.file("FailedChannelList.txt");
+        archive.file("SucceedChannelList.txt");
+      }
+      archive.directory(filename, filename);
     }
-    archive.directory(filename, filename);
     archive.finalize();
   });
 };
