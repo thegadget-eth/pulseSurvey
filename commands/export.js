@@ -5,7 +5,8 @@ const fs = require("fs");
 const archiver = require("archiver");
 const path = require("path");
 
-const waitForNextChannel = 1000; // wait for 1s
+// const waitForNextChannel = 1000; // wait for 1s
+const waitForNextChannel = 5000; // wait for 5s
 // const waitForNextChannel = 10000 * 60; // wait for 10min
 
 /**
