@@ -20,7 +20,7 @@ module.exports = {
           ephemeral: true,
         });
     } catch (error) {
-      // console.error(error);
+      console.error(error);
       await interaction.reply({
         content: "There was an error while executing this command!",
         ephemeral: true,

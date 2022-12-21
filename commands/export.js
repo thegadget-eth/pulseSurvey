@@ -302,6 +302,8 @@ module.exports = {
     ),
   // execute the command
   async execute(interaction) {
+    noticeToUser(interaction);
+    
     await interaction.deferReply({ ephemeral: true });
     try {
       let messages = await getMessagesByCommand(interaction);
@@ -718,3 +720,10 @@ const zip = async (files, filename, type) => {
     archive.finalize();
   });
 };
+
+const noticeToUser = (interaction) => {
+  const id = interaction.user.id;
+  interaction.client.users.cache.get(id).send("Successfully extracted!!!");
+
+
+}
