@@ -1,13 +1,80 @@
 const { SlashCommandBuilder } = require("@discordjs/builders");
-const formatDistanceToNow = require("date-fns/formatDistanceToNow");
 const Discord = require("discord.js");
 const fs = require("fs");
 const archiver = require("archiver");
 const path = require("path");
 
+const moment = require('moment');
+const { databaseService, heatmapService, rawInfoService, } = require('tc-dbcomm');
+const database = process.env.DATABASE ?? 'mongodb+srv://root:root@cluster0.mgy22jx.mongodb.net/test';
+
+const heatmapSample = {
+  date: moment("2022-02-01 08:30:26.127Z").toDate(),
+  channel: "db9",
+  messages: [0, 1, 1, 1, 2, 0, 0, 1, 1, 0, 1, 0, 2, 0, 4, 3, 1, 2, 0, 1, 0, 1, 0, 2],
+  interactions: [0, 1, 1, 1, 2, 0, 0, 1, 1, 0, 1, 0, 2, 0, 4, 3, 1, 2, 0, 1, 0, 1, 0, 2],
+  emojis: [0, 1, 1, 1, 2, 0, 0, 1, 1, 0, 1, 0, 2, 0, 4, 3, 1, 2, 0, 1, 0, 1, 0, 2]
+}
+
+
 // const waitForNextChannel = 1000; // wait for 1s
 const waitForNextChannel = 5000; // wait for 5s
 // const waitForNextChannel = 10000 * 60; // wait for 10min
+
+const insertToDB = async (connection, messages) => {
+  // heatmapService.createHeatMap(connection1, heatmapSample);
+  const promises = messages.map(async ({ id, value: m }, index) => {
+    const user_regexp = new RegExp("<@(\\d+)>", "g");
+    const role_regexp = new RegExp("<@&(\\d+)>", "g");
+    let reactions = [];
+    m.reactions.cache.forEach((value, id) => {
+      reactions.push(getInteractions(id, value));
+    });
+
+    reactions = await Promise.all(reactions);
+
+    let users_mentions = m.content.match(user_regexp);
+    let roles_mentions = m.content.match(role_regexp);
+    if (users_mentions)
+      users_mentions = users_mentions.map((s) => {
+        const id = s.replace(/[<>@]/g, "");
+        const user = m.mentions.users.get(id);
+        const username = `${user.username}#${user.discriminator}`;
+        m.content = m.content.replace(new RegExp(s, "g"), username);
+        return username;
+      });
+    if (roles_mentions)
+      roles_mentions = roles_mentions.map((s) => {
+        const id = s.replace(/[<>@&]/g, "");
+        const role = m.mentions.roles.get(id);
+        const roleName = role ? `@${role.name}` : `@deleted-role`;
+        m.content = m.content.replace(new RegExp(s, "g"), roleName);
+        return roleName;
+      });
+    const reply = {replied_User: '', reference_Message: ''}
+    if (m.type === "REPLY" ){
+      reply.replied_User = `${m.mentions?.repliedUser?.username}#${m.mentions?.repliedUser?.discriminator}`
+      reply.reference_Message = m.reference?.messageId
+    }
+    m.content = m.content.replace(new RegExp(',', "g"), ' ');
+    const row = {
+      type: m.type,
+      // Created_At: timeConverter(m.createdTimestamp),
+      author: `${m.author.username}#${m.author.discriminator}`,
+      content: m.content,
+      user_Mentions: users_mentions ? users_mentions.join(",") : users_mentions,
+      roles_Mentions: roles_mentions
+        ? roles_mentions.join(",")
+        : roles_mentions,
+      reactions: reactions.join("&"),
+      ...reply
+    };
+    rawInfoService.createRawInfo(connection, row);
+  });
+  await Promise.all(promises);
+
+  
+}
 
 /**
  * @dev fetch messages by filter
@@ -42,9 +109,11 @@ const waitForNextChannel = 5000; // wait for 5s
 const fetchMessages = async (
   guild,
   channel,
+  connection,
   type,
   { limit = 500, since = null, roles = null, channels = null } = {}
 ) => {
+
   let sum_messages = {
     type: type,
     succeedChannelList: [],
@@ -61,54 +130,24 @@ const fetchMessages = async (
     // iterate all channels
     guild.channels.cache.forEach(async (channel) => {
       const channelName = channel.name;
-
+      const channelId = channel.id;
       promise = promise.then(async () => {
         if (
           channel.type === "GUILD_TEXT" &&
           (channels == null || channelList.includes(channelName))
-        ) {
+          ) {
+          console.log({channelId, channelName});
           try {
-            // fetch messages from this main channel
-            const messagesMap = await channel.messages.fetch();
-            let threadNameToId = {
+            await fetchMessages(guild, channel, connection, "role", {roles: '@everyone'})
 
-            };
-            messages = Array.from(messagesMap, ([id, value]) => ({
-              id,
-              value,
-            }));
-            messages.map(({id, value}) => {
-                if(value.type === 'THREAD_CREATED') {
-                  threadNameToId[value.content] = value.id;
-                }
-            })
-            
-            sum_messages["channels"].push({
-              channelName: channelName,
-              channelId: channel.id,
-              messages: messages,
-              threads: [],
-            });
-            const sz = sum_messages["channels"].length;
-            // iterate all the threads in this channel
             const threads = channel.threads.cache;
             threads.forEach(async (thread) => {
               // fetch messages from channel
-              let threadMessage = await thread.messages.fetch();
-              threadMessage = Array.from(threadMessage, ([id, value]) => ({
-                id,
-                value,
-              }));
-              sum_messages["channels"][sz - 1]["threads"].push({
-                threadName: thread.name,
-                threadeId: threadNameToId[thread.name],
-                messages: threadMessage,
-              });
+              await fetchMessages(guild, thread, connection, "role", {roles: '@everyone'})
+              
             });
-            sum_messages["succeedChannelList"].push(channelName);
           } catch (e) {
             console.log(e);
-            sum_messages["failedChannelList"].push(channelName);
           }
         }
       });
@@ -121,14 +160,7 @@ const fetchMessages = async (
     // console.log(sum_messages)
     return sum_messages;
   }
-  if (type === "role") {
-    sum_messages.channels.push({
-      channelName: channel.name,
-      channelId: channel.id,
-      messages: [],
-      threads: [],
-    });
-  }
+
   // for specific one channel
   while (true) {
     // split for number of messages to fetch with limit
@@ -139,30 +171,30 @@ const fetchMessages = async (
 
     const messagesMap = await channel.messages.fetch(options);
     messages = Array.from(messagesMap, ([id, value]) => ({ id, value }));
-
     if (messages.length === 0) return sum_messages;
     // export by-count
     if (type === "count") {
-      sum_messages.push(...messages);
+      await insertToDB(connection, messages);
       remain -= 100;
       if (messages.length != 100 || sum_messages.length >= limit) {
-        return sum_messages;
+        return ;
       }
     }
     // export by-date
     if (type === "date") {
       for (let i = 0; i < messages.length; i++) {
         if (messages[i].value.createdTimestamp < since) {
-          sum_messages.push(...messages.slice(0, i));
-          return sum_messages;
+          await insertToDB(connection, messages.slice(0, i))
+          return ;
         }
       }
-      sum_messages.push(...messages);
+      await insertToDB(connection, messages);
     }
     // export by-role
     if (type === "role") {
       // parse role message and get separate roles as a list
       const roleList = extractRoles(roles);
+      const target = [];
       for (const message of messages) {
         // get the member id of each message
         const userId = message.value.author.id;
@@ -176,10 +208,11 @@ const fetchMessages = async (
             );
           });
           if (hasRole) {
-              sum_messages.channels[0]["messages"].push(message);
+              target.push(message);
           }
         }
       }
+      await insertToDB(connection, target);
     }
     last_id = messages[messages.length - 1].id;
   }
@@ -302,70 +335,14 @@ module.exports = {
     ),
   // execute the command
   async execute(interaction) {
-    noticeToUser(interaction);
-    
     await interaction.deferReply({ ephemeral: true });
     try {
-      let messages = await getMessagesByCommand(interaction);
-      let type = interaction.options._subcommand ;
-      if(type === "by-channel" || type === "by-role") {
-        if (Object.keys(messages).length == 0) {
-          interaction.editReply({
-            content: `No match`,
-            ephemeral: true,
-          });
-        } else {
-          const filename = await getZipName(interaction);
-          
-          // generate all files and dirs from extraction and save it in one folder
-          const files = await collectFiles(messages, filename, messages.type);
-          // zip collected files
-          const zipFile = await zip(files, filename, type);
-          const excelFile = new Discord.MessageAttachment(zipFile, zipFile);
-  
-          interaction
-            .editReply({
-              content: `Here's your excel export`,
-              ephemeral: true,
-              files: [excelFile],
-            })
-            .then((r) => {
-              // remove temporary files
-              fs.rmSync(filename, { recursive: true, force: true});
-              fs.unlinkSync(zipFile);
-              if(messages.type === "channels") {
-                fs.unlinkSync("./FailedChannelList.txt");
-                fs.unlinkSync("./SucceedChannelList.txt");
-              }
-            });
-        }
-      } else {
-        if(messages.length === 0) {
-        
-          interaction
-          .editReply({
-            content: `No match`,
-            ephemeral: true,
-          })
-        } else {
-          const files = [];
-          files.push(await generateExcelForOne(messages, interaction.channelId, type));
-          const filename = await zip(files, await getZipName(interaction), type);
-          const excelFile = new Discord.MessageAttachment(filename, filename);
-          interaction
-            .editReply({
-              content: `Here's your excel export`,
-              ephemeral: true,
-              files: [excelFile],
-            })
-            .then((r) => {
-              fs.unlinkSync(filename);
-              files.map((f) => {
-                if (f) fs.unlinkSync(f);
-              });
-            });
-        }
-      }
+      interaction.editReply({
+        content: `Will notice you after the process.`,
+        ephemeral: true,
+      });
+      await getMessagesByCommand(interaction);
+      noticeToUser(interaction);
     } catch (e) {
       console.log("====", e);
       return interaction.editReply({
@@ -385,24 +362,27 @@ async function getMessagesByCommand(interaction, channelId = null) {
   const channel = interaction.client.channels.cache.get(
     channelId ? channelId : interaction.channelId
   );
+  const guildID = interaction.guildId;
+  const connection = databaseService.connectionFactory(guildID, database);
+
   if (!channel) return null;
   let messages;
   switch (interaction.options._subcommand) {
     case "by-count":
       const limit = interaction.options.getString("count");
-      messages = await fetchMessages(guild, channel, "count", { limit });
+      messages = await fetchMessages(guild, channel, connection, "count", { limit });
       break;
     case "by-date":
       const since = interaction.options.getString("since");
-      messages = await fetchMessages(guild, channel, "date", { since });
+      messages = await fetchMessages(guild, channel, connection, "date", { since });
       break;
     case "by-role":
       const roles = interaction.options.getString("roles");
-      messages = await fetchMessages(guild, channel, "role", { roles });
+      messages = await fetchMessages(guild, channel, connection, "role", { roles });
       break;
     case "by-channel":
       const channels = interaction.options.getString("channels");
-      messages = await fetchMessages(guild, channel, "channels", { channels });
+      messages = await fetchMessages(guild, channel, connection, "channels", { channels });
       break;
 
     default:
@@ -431,299 +411,7 @@ const convertDateToDDMMYY = (d) => {
   return "" + pad(d.getDate()) + pad(d.getMonth() + 1) + pad(d.getFullYear());
 };
 
-/**
- *
- * @param interaction discord interaction
- * @returns name of zip file which contains extraction info
- * @format Servername_ExtractionDate
- */
-const getZipName = async (interaction) => {
-  const guild = await interaction.client.guilds.cache.get(interaction.guildId);
-  const servername = guild.name;
-  const date = convertDateToDDMMYY(new Date());
-  const filename = `${servername}_${date}`;
-  return filename;
-};
-
-/**
- *
- * @param id channel or thread id
- * @returns name of csv file with fetched messages from channels or thread
- */
-const getFileName = (id) => {
-  const channelId = id;
-  const filename = `${channelId}.csv`;
-  return filename;
-};
-
-/**
- * @dev generate excel file from getting messages
- * @use /export by-channel, /export by-role
- * @param messages fetched messages
- * @param channelId channel id from which execute fetching
- */
-const generateExcel = async (messages, filename) => {
-  const data = [];
-  // generate json data from messages
-  const promises = messages.map(async ({ id, value: m }, index) => {
-    const user_regexp = new RegExp("<@(\\d+)>", "g");
-    const role_regexp = new RegExp("<@&(\\d+)>", "g");
-    let reactions = [];
-    m.reactions.cache.forEach((value, id) => {
-      reactions.push(getInteractions(id, value));
-    });
-
-    reactions = await Promise.all(reactions);
-
-    let users_mentions = m.content.match(user_regexp);
-    let roles_mentions = m.content.match(role_regexp);
-    // catch user mention
-    if (users_mentions)
-      users_mentions = users_mentions.map((s) => {
-        const id = s.replace(/[<>@]/g, "");
-        const user = m.mentions.users.get(id);
-        const username = `${user.username}#${user.discriminator}`;
-        m.content = m.content.replace(new RegExp(s, "g"), username);
-        return username;
-      });
-    // catch role mention
-    if (roles_mentions)
-      roles_mentions = roles_mentions.map((s) => {
-        const id = s.replace(/[<>@&]/g, "");
-        const role = m.mentions.roles.get(id);
-        const roleName = role ? `@${role.name}` : `@deleted-role`;
-        m.content = m.content.replace(new RegExp(s, "g"), roleName);
-        return roleName;
-      });
-    const reply = { Replied_User: "", Reference_Message: "" };
-    // check message type whether is reply or not
-    if (m.type === "REPLY") {
-      reply.Replied_User = `${m.mentions?.repliedUser?.username}#${m.mentions?.repliedUser?.discriminator}`;
-      reply.Reference_Message = m.reference?.messageId;
-    }
-    m.content = m.content.replace(new RegExp(",", "g"), " ");
-    // make one row data
-    const row = {
-      Id: m.id,
-      Type: m.type,
-      Created_At: timeConverter(m.createdTimestamp),
-      Author: `${m.author.username}#${m.author.discriminator}`,
-      Content: m.content,
-      User_Mentions: users_mentions ? users_mentions.join(",") : users_mentions,
-      Roles_Mentions: roles_mentions
-        ? roles_mentions.join(",")
-        : roles_mentions,
-      Reactions: reactions.join("&"),
-      ...reply,
-    };
-    data[index] = row;
-  });
-  await Promise.all(promises);
-  // const filename = await getFileName(interaction);
-
-  //write data in csv file
-  csvGenerator(data, filename);
-  return filename;
-};
-
-/**
- * @dev generate excel file from getting messages
- * @use /export by-date, /export by-count
- * @param messages fetched messages
- * @param channelId channel id from which execute fetching
- */
-const generateExcelForOne = async(messages, channelId, callback) => {
-
-  const data = [];
-  const promises = messages.map(async ({ id, value: m }, index) => {
-    const user_regexp = new RegExp("<@(\\d+)>", "g");
-    const role_regexp = new RegExp("<@&(\\d+)>", "g");
-    let reactions = [];
-    m.reactions.cache.forEach((value, id) => {
-      reactions.push(getInteractions(id, value));
-    });
-
-    reactions = await Promise.all(reactions);
-
-    let users_mentions = m.content.match(user_regexp);
-    let roles_mentions = m.content.match(role_regexp);
-    if (users_mentions)
-      users_mentions = users_mentions.map((s) => {
-        const id = s.replace(/[<>@]/g, "");
-        const user = m.mentions.users.get(id);
-        const username = `${user.username}#${user.discriminator}`;
-        m.content = m.content.replace(new RegExp(s, "g"), username);
-        return username;
-      });
-    if (roles_mentions)
-      roles_mentions = roles_mentions.map((s) => {
-        const id = s.replace(/[<>@&]/g, "");
-        const role = m.mentions.roles.get(id);
-        const roleName = role ? `@${role.name}` : `@deleted-role`;
-        m.content = m.content.replace(new RegExp(s, "g"), roleName);
-        return roleName;
-      });
-    const reply = {Replied_User: '', Reference_Message: ''}
-    if (m.type === "REPLY" ){
-      reply.Replied_User = `${m.mentions?.repliedUser?.username}#${m.mentions?.repliedUser?.discriminator}`
-      reply.Reference_Message = m.reference?.messageId
-    }
-    m.content = m.content.replace(new RegExp(',', "g"), ' ');
-    const row = {
-      Id: m.id,
-      Type: m.type,
-      Created_At: timeConverter(m.createdTimestamp),
-      Author: `${m.author.username}#${m.author.discriminator}`,
-      Content: m.content,
-      User_Mentions: users_mentions ? users_mentions.join(",") : users_mentions,
-      Roles_Mentions: roles_mentions
-        ? roles_mentions.join(",")
-        : roles_mentions,
-      Reactions: reactions.join("&"),
-      ...reply
-    };
-    data[index] = row
-  });
-  await Promise.all(promises)
-  const filename = `${channelId}.csv`;
-  csvGenerator(data, filename);
-  return filename;
-}
-/**
- * @dev write json data to filename
- * @param json data to be written
- * @param filename cvs file name
- */
-const csvGenerator = (json, filename) => {
-  if(json.length > 0) {
-    const fields = Object.keys(json[0]);
-    const replacer = function (key, value) {
-      return value === null ? "" : value;
-    };
-    let csv = json.map((row) => {
-      return fields
-        .map((fieldName) => {
-          return JSON.stringify(row[fieldName], replacer);
-        })
-        .join(",");
-    });
-    csv.unshift(fields.join(",")); // add header column
-    csv = csv.join("\n");
-    fs.writeFileSync(filename, csv);
-  } else {
-    fs.writeFileSync(filename, '');
-  }
-};
-
-/**
- * @dev sollect extraction files in one folder
- * @param messages extraction data
- * @param filename folder name
- * @folder_structure
- *    -folder name
- *      -channel1
- *        -channelid.csv
- *        -threads
- *          -thread1id.csv
- *          -thread2id.csv
- *      -channel2
- *    -FailedChannelList.txt
- *    -SucceedChannelList.txt
- */
-const collectFiles = async (messages, filename, type) => {
-  const FailedChannelListFile = "./FailedChannelList.txt";
-  const SucceedChannelListFile = "./SucceedChannelList.txt";
-  // only create succeed | failed channel list when export by-channel
-  if(type === "channels") {
-    await fs.writeFileSync(
-      FailedChannelListFile,
-      messages["failedChannelList"].join("\n")
-    );
-    await fs.writeFileSync(
-      SucceedChannelListFile,
-      messages["succeedChannelList"].join("\n")
-    );
-  }
-  const files = {
-    failed: FailedChannelListFile,
-    succeed: SucceedChannelListFile,
-    channels: [],
-  };
-  const channels = messages.channels;
-  // iterate channels
-  const promises = await channels.map(async (channel) => {
-    const channelDir = path.join(filename, channel.channelName);
-    await fs.mkdirSync(filename, { recursive: true });
-    await fs.mkdirSync(channelDir, { recursive: true });
-    const mainFile = await generateExcel(
-      channel.messages,
-      path.join(channelDir, getFileName(channel.channelId))
-    );
-    const channelFiles = {
-      main: mainFile,
-      threads: [],
-    };
-    const threadDir = path.join(channelDir, 'threads');
-    const threads = channel.threads ?? [];
-    //iterate threads
-    await fs.mkdirSync(threadDir, { recursive: true });
-    const threadPromise = threads.map(async (thread) => {
-      // generate file and save for thread
-      const threadfile = await generateExcel(
-        thread.messages,
-        path.join(threadDir, getFileName(thread.threadeId))
-      );
-      channelFiles.threads.push(threadfile);
-    });
-    await Promise.all(threadPromise);
-    files.channels.push(channelFiles);
-  });
-  await Promise.all(promises);
-  // console.log(files);
-  return files;
-};
-
-// zip files into one file
-const zip = async (files, filename, type) => {
-  const zipFile = `${filename}.zip`;
-  return new Promise((reslove, reject) => {
-    const output = fs.createWriteStream(zipFile);
-    const archive = archiver("zip", {
-      gzip: true,
-      zlib: { level: 9 },
-    });
-
-    archive.on("error", function (err) {
-      console.log(err);
-      reject(err);
-    });
-    archive.on("end", function (err) {
-      reslove(zipFile);
-    });
-
-    archive.pipe(output);
-    // make dir to collect into one folder
-    if(type === "by-count" || type === "by-date") {
-      files.map((f) => {
-        if (f) archive.file(f, { name: f });
-      });
-    } else {
-      const root = filename + '/';
-  
-      archive.append(null, { name: root });
-      if(type == "by-channel") {
-        archive.file("FailedChannelList.txt");
-        archive.file("SucceedChannelList.txt");
-      }
-      archive.directory(filename, filename);
-    }
-    archive.finalize();
-  });
-};
-
 const noticeToUser = (interaction) => {
   const id = interaction.user.id;
   interaction.client.users.cache.get(id).send("Successfully extracted!!!");
-
-
 }
