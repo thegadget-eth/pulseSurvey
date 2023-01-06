@@ -3,39 +3,6 @@ const database =
   "mongodb+srv://root:root@cluster0.mgy22jx.mongodb.net/test";
 const { databaseService, rawInfoService } = require("tc-dbcomm");
 
-/**
- * @dev convert timestamp to formated date
- * @param timestamp given timpstamp
- * @result_format dd month(as string) yyyy HH:MM:SS
- * @result_example 31 Oct 2022 15:15:26
- */
-const timeConverter = (timestamp) => {
-  var a = new Date(timestamp);
-  var months = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-  ];
-  var year = a.getFullYear();
-  var month = months[a.getMonth()];
-  var date = a.getDate();
-  var hour = a.getHours();
-  var min = a.getMinutes();
-  var sec = a.getSeconds();
-  var time =
-    date + " " + month + " " + year + " " + hour + ":" + min + ":" + sec;
-  return time;
-};
-
 // get users with id and value
 const getInteractions = async (id, value) => {
     let usernames = [];
