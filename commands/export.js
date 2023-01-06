@@ -1,127 +1,26 @@
 const { SlashCommandBuilder } = require("@discordjs/builders");
-const Discord = require("discord.js");
-const fs = require("fs");
-const archiver = require("archiver");
-const path = require("path");
-
-const moment = require('moment');
-const { databaseService, heatmapService, rawInfoService, } = require('tc-dbcomm');
-const database = process.env.DATABASE ?? 'mongodb+srv://root:root@cluster0.mgy22jx.mongodb.net/test';
-
-const heatmapSample = {
-  date: moment("2022-02-01 08:30:26.127Z").toDate(),
-  channel: "db9",
-  messages: [0, 1, 1, 1, 2, 0, 0, 1, 1, 0, 1, 0, 2, 0, 4, 3, 1, 2, 0, 1, 0, 1, 0, 2],
-  interactions: [0, 1, 1, 1, 2, 0, 0, 1, 1, 0, 1, 0, 2, 0, 4, 3, 1, 2, 0, 1, 0, 1, 0, 2],
-  emojis: [0, 1, 1, 1, 2, 0, 0, 1, 1, 0, 1, 0, 2, 0, 4, 3, 1, 2, 0, 1, 0, 1, 0, 2]
-}
-
-
-// const waitForNextChannel = 1000; // wait for 1s
-const waitForNextChannel = 5000; // wait for 5s
-// const waitForNextChannel = 10000 * 60; // wait for 10min
-
-const insertToDB = async (connection, messages) => {
-  // heatmapService.createHeatMap(connection1, heatmapSample);
-  const promises = messages.map(async ({ id, value: m }, index) => {
-    const user_regexp = new RegExp("<@(\\d+)>", "g");
-    const role_regexp = new RegExp("<@&(\\d+)>", "g");
-    let reactions = [];
-    m.reactions.cache.forEach((value, id) => {
-      reactions.push(getInteractions(id, value));
-    });
-
-    reactions = await Promise.all(reactions);
-
-    let users_mentions = m.content.match(user_regexp);
-    let roles_mentions = m.content.match(role_regexp);
-    if (users_mentions)
-      users_mentions = users_mentions.map((s) => {
-        const id = s.replace(/[<>@]/g, "");
-        const user = m.mentions.users.get(id);
-        const username = `${user.username}#${user.discriminator}`;
-        m.content = m.content.replace(new RegExp(s, "g"), username);
-        return username;
-      });
-    if (roles_mentions)
-      roles_mentions = roles_mentions.map((s) => {
-        const id = s.replace(/[<>@&]/g, "");
-        const role = m.mentions.roles.get(id);
-        const roleName = role ? `@${role.name}` : `@deleted-role`;
-        m.content = m.content.replace(new RegExp(s, "g"), roleName);
-        return roleName;
-      });
-    const reply = {replied_User: '', reference_Message: ''}
-    if (m.type === "REPLY" ){
-      reply.replied_User = `${m.mentions?.repliedUser?.username}#${m.mentions?.repliedUser?.discriminator}`
-      reply.reference_Message = m.reference?.messageId
-    }
-    m.content = m.content.replace(new RegExp(',', "g"), ' ');
-    const row = {
-      type: m.type,
-      // Created_At: timeConverter(m.createdTimestamp),
-      author: `${m.author.username}#${m.author.discriminator}`,
-      content: m.content,
-      user_Mentions: users_mentions ? users_mentions.join(",") : users_mentions,
-      roles_Mentions: roles_mentions
-        ? roles_mentions.join(",")
-        : roles_mentions,
-      reactions: reactions.join("&"),
-      ...reply
-    };
-    rawInfoService.createRawInfo(connection, row);
-  });
-  await Promise.all(promises);
-
-  
-}
+const { insertMessages } = require("../database/dbservice");
+const waitForNextChannel = 1000; // wait for 1s
+// const waitForNextChannel = 5000; // wait for 5s
 
 /**
  * @dev fetch messages by filter
  * @param guild discord guild
  * @param channel current channel
- * @param type fetching message type. can be an element of ["channels", "count", "date", "role"]
+ * @param type message type. can be an element of ["channels", "count", "date", "role", "all"] // "all" means fetch all messages from current channel or thread
  * @param limit limit fetching messages
  * @param since filtering param by date
  * @param roles filtering param by roles
  * @param channels filtering param by channel
- * @return message type {
- *    type: "role" | "channel"
- *    succeedChannelList: [channelName],
- *    failedChannelList: [channelName],
- *    channels: [
- *      {
- *        channelName: "",
- *        channelId: "",
- *        messages: [message],
- *        threads: [
- *           {
- *              threadName: "",
- *              threadeId: "",
- *              messages: [message]
- *           }
- *        ]
- *      }
- *
- *    ]
- * }
+ * @return messages
  */
 const fetchMessages = async (
   guild,
   channel,
-  connection,
   type,
   { limit = 500, since = null, roles = null, channels = null } = {}
 ) => {
-
-  let sum_messages = {
-    type: type,
-    succeedChannelList: [],
-    failedChannelList: [],
-    channels: [],
-  }; // for collecting messages
-
-  if(type === "date" || type === "count") sum_messages = [];
+  let sum_messages = []; // for collecting messages
   let last_id;
   let remain = limit;
   if (type === "channels") {
@@ -130,24 +29,29 @@ const fetchMessages = async (
     // iterate all channels
     guild.channels.cache.forEach(async (channel) => {
       const channelName = channel.name;
-      const channelId = channel.id;
+
       promise = promise.then(async () => {
         if (
           channel.type === "GUILD_TEXT" &&
           (channels == null || channelList.includes(channelName))
-          ) {
-          console.log({channelId, channelName});
+        ) {
           try {
-            await fetchMessages(guild, channel, connection, "role", {roles: '@everyone'})
-
+            //fetch all messages from the channel
+            const messages = await fetchMessages(guild, channel, "all");
+            sum_messages.push(...messages);
             const threads = channel.threads.cache;
+            // iterate all threads
+            let threadPromise = Promise.resolve();
+
             threads.forEach(async (thread) => {
-              // fetch messages from channel
-              await fetchMessages(guild, thread, connection, "role", {roles: '@everyone'})
-              
+              threadPromise = threadPromise.then(async () => {
+                // fetch messages from thread
+                const messages = await fetchMessages(guild, thread, "all");
+                sum_messages.push(...messages);
+              });
             });
+            await threadPromise;
           } catch (e) {
-            console.log(e);
           }
         }
       });
@@ -157,7 +61,6 @@ const fetchMessages = async (
       });
     });
     await promise;
-    // console.log(sum_messages)
     return sum_messages;
   }
 
@@ -168,33 +71,39 @@ const fetchMessages = async (
     if (last_id) {
       options.before = last_id;
     }
-
-    const messagesMap = await channel.messages.fetch(options);
-    messages = Array.from(messagesMap, ([id, value]) => ({ id, value }));
+    let messages = [];
+    try {
+      const messagesMap = await channel.messages.fetch(options);
+      messages = Array.from(messagesMap, ([id, value]) => ({ id, value }));
+    } catch(e) {
+    }
     if (messages.length === 0) return sum_messages;
+    // fetch all
+    if (type === "all") {
+      sum_messages.push(...messages);
+    }
     // export by-count
     if (type === "count") {
-      await insertToDB(connection, messages);
+      sum_messages.push(...messages);
       remain -= 100;
       if (messages.length != 100 || sum_messages.length >= limit) {
-        return ;
+        return sum_messages;
       }
     }
     // export by-date
     if (type === "date") {
       for (let i = 0; i < messages.length; i++) {
         if (messages[i].value.createdTimestamp < since) {
-          await insertToDB(connection, messages.slice(0, i))
-          return ;
+          sum_messages.push(...messages.slice(0, i));
+          return sum_messages;
         }
       }
-      await insertToDB(connection, messages);
+      sum_messages.push(...messages);
     }
     // export by-role
     if (type === "role") {
       // parse role message and get separate roles as a list
       const roleList = extractRoles(roles);
-      const target = [];
       for (const message of messages) {
         // get the member id of each message
         const userId = message.value.author.id;
@@ -208,17 +117,14 @@ const fetchMessages = async (
             );
           });
           if (hasRole) {
-              target.push(message);
+            sum_messages.push(message);
           }
         }
       }
-      await insertToDB(connection, target);
     }
     last_id = messages[messages.length - 1].id;
   }
-  return sum_messages;
 };
-
 /**
  * @dev parse roles string to get separate role
  * @param roles role input string
@@ -226,41 +132,10 @@ const fetchMessages = async (
  * @exampleOutput  ['1015314731352989707', 'everyone', '968122690118512720']
  */
 const extractRoles = (roles) => {
-  const roleList = roles.split(/<@&(\d+)>|<@(\d+)>|@([\w\d\-\. ]+)|\s/).filter(Boolean);
+  const roleList = roles
+    .split(/<@&(\d+)>|<@(\d+)>|@([\w\d\-\. ]+)|\s/)
+    .filter(Boolean);
   return roleList;
-}
-
-/**
- * @dev convert timestamp to formated date
- * @param timestamp given timpstamp
- * @result_format dd month(as string) yyyy HH:MM:SS
- * @result_example 31 Oct 2022 15:15:26
- */
-const timeConverter = (timestamp) => {
-  var a = new Date(timestamp);
-  var months = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-  ];
-  var year = a.getFullYear();
-  var month = months[a.getMonth()];
-  var date = a.getDate();
-  var hour = a.getHours();
-  var min = a.getMinutes();
-  var sec = a.getSeconds();
-  var time =
-    date + " " + month + " " + year + " " + hour + ":" + min + ":" + sec;
-  return time;
 };
 
 module.exports = {
@@ -341,7 +216,7 @@ module.exports = {
         content: `Will notice you after the process.`,
         ephemeral: true,
       });
-      await getMessagesByCommand(interaction);
+      await insertMessagesByCommand(interaction);
       noticeToUser(interaction);
     } catch (e) {
       console.log("====", e);
@@ -354,64 +229,45 @@ module.exports = {
 };
 
 /**
- * get messages by extracting type
+ * insert messages to database
  */
 
-async function getMessagesByCommand(interaction, channelId = null) {
+async function insertMessagesByCommand(interaction, channelId = null) {
   const guild = await interaction.client.guilds.cache.get(interaction.guildId);
   const channel = interaction.client.channels.cache.get(
     channelId ? channelId : interaction.channelId
   );
-  const guildID = interaction.guildId;
-  const connection = databaseService.connectionFactory(guildID, database);
 
   if (!channel) return null;
-  let messages;
+  let messages = [];
   switch (interaction.options._subcommand) {
     case "by-count":
       const limit = interaction.options.getString("count");
-      messages = await fetchMessages(guild, channel, connection, "count", { limit });
+      messages = await fetchMessages(guild, channel, "count", { limit });
       break;
     case "by-date":
       const since = interaction.options.getString("since");
-      messages = await fetchMessages(guild, channel, connection, "date", { since });
+      messages = await fetchMessages(guild, channel, "date", { since });
       break;
     case "by-role":
       const roles = interaction.options.getString("roles");
-      messages = await fetchMessages(guild, channel, connection, "role", { roles });
+      messages = await fetchMessages(guild, channel, "role", { roles });
       break;
     case "by-channel":
       const channels = interaction.options.getString("channels");
-      messages = await fetchMessages(guild, channel, connection, "channels", { channels });
+      messages = await fetchMessages(guild, channel, "channels", { channels });
       break;
 
     default:
       throw "wrong command";
   }
+
+  const guildID = interaction.guildId;
+  insertMessages(guildID, messages);
   return messages;
 }
-
-// get users with id and value
-const getInteractions = async (id, value) => {
-  let usernames = [];
-  let users = await value.users.fetch();
-  users = users.forEach((user) => {
-    usernames.push(`${user.username}#${user.discriminator}`);
-  });
-  return [usernames.toString(), id];
-};
-
-// change format of date to DDMMYY
-const convertDateToDDMMYY = (d) => {
-  // convert 2 digit integer
-  d = new Date(d);
-  const pad = (s) => {
-    return s < 10 ? "0" + s : s % 100;
-  };
-  return "" + pad(d.getDate()) + pad(d.getMonth() + 1) + pad(d.getFullYear());
-};
 
 const noticeToUser = (interaction) => {
   const id = interaction.user.id;
   interaction.client.users.cache.get(id).send("Successfully extracted!!!");
-}
+};
