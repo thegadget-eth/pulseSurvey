@@ -82,7 +82,7 @@ const messageToRawinfo = async (m) => {
   m.content = m.content.replace(new RegExp(",", "g"), " ");
   const data = {
     type: m.type,
-    created_At: timeConverter(m.createdTimestamp),
+    created_at: new Date(m.createdTimestamp),
     author: `${m.author.username}#${m.author.discriminator}`,
     content: m.content,
     user_Mentions: users_mentions ? users_mentions.join(",") : users_mentions,
