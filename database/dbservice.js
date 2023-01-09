@@ -1,6 +1,8 @@
-const database =
-  process.env.DATABASE ??
-  "mongodb+srv://root:root@cluster0.mgy22jx.mongodb.net/test";
+const db_address = process.env.DB_ADDRESS;
+const db_user = process.env.DB_USER;
+const db_password = process.env.DB_PASSWORD;
+
+const database = `mongodb://${db_user}:${db_password}@${db_address}/?authMechanism=DEFAULT&tls=false`;
 const { databaseService, rawInfoService } = require("tc-dbcomm");
 
 // get users with id and value
