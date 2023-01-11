@@ -81,15 +81,23 @@ const insertMessages = async (guildID, messages) => {
 
 // fetch guild settings
 const fetchSettings = async () => {
-  
   const guildId = process.env.GUILD;
   const database = getDB();
-  
   const connection = databaseService.connectionFactory(guildId, database);
-    const settings = await guildService.fetchGuild(connection);
-    
-    return settings;
+  const settings = await guildService.fetchGuild(connection);
+  return settings;
 }
+
+const extractMissed = async(guildId, messages) => {
+  const connection = databaseService.connectionFactory(guildId, database);
+  for(const message of messages) {
+    const date = new Date(message.value.createdTimestamp);
+    // if(rawInfoService.checkExist(connection, date)) {
+    //   console.log("Exist");
+    // }
+  }
+}
+
 module.exports = {
   insertMessages,
   fetchSettings
