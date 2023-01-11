@@ -1,7 +1,6 @@
-const { SlashCommandBuilder } = require("@discordjs/builders");
 const { insertMessages } = require("../database/dbservice");
 const waitForNextChannel = 1000; // wait for 1s
-// const waitForNextChannel = 5000; // wait for 5s
+
 
 /**
  * @dev fetch messages by filter
@@ -138,136 +137,11 @@ const extractRoles = (roles) => {
   return roleList;
 };
 
-module.exports = {
-  data: new SlashCommandBuilder()
-    .setName("export")
-    .setDescription("Get excel export")
-    .setDMPermission(false)
-    /**
-     * export by-role <roles>
-     * @dev fetch messages by roles
-     * @param roles type of string and required
-     */
-    .addSubcommand((subcommand) =>
-      subcommand
-        .setName("by-role")
-        .setDescription("Export data by roles")
-        .addStringOption((option) =>
-          option
-            .setName("roles")
-            .setDescription("filter for roles")
-            .setRequired(true)
-        )
-    )
-    /**
-     * export by-channel <channels>
-     * @dev fetch messages by channels
-     * @param channels type of string and required
-     *                 if not specified, fetch from all channels
-     */
-    .addSubcommand((subcommand) =>
-      subcommand
-        .setName("by-channel")
-        .setDescription("Export data by channels")
-        .addStringOption((option) =>
-          option
-            .setName("channels")
-            .setDescription("filter for chaneels")
-            .setRequired(false)
-        )
-    )
-    /**
-     * export by-count <count>
-     * @dev fetch messages that number of messages is limited to count
-     * @param count type of string and required
-     */
-    .addSubcommand((subcommand) =>
-      subcommand
-        .setName("by-count")
-        .setDescription("Export latest messages based on passed count")
-        .addStringOption((option) =>
-          option
-            .setName("count")
-            .setDescription("number of messages")
-            .setRequired(true)
-        )
-    )
-    /**
-     * export by-date <since>
-     * @dev fetch messages that number of messages is limited to count
-     * @param since type of string and required
-     */
-    .addSubcommand((subcommand) =>
-      subcommand
-        .setName("by-date")
-        .setDescription("Export by date")
-        .addStringOption((option) =>
-          option
-            .setName("since")
-            .setDescription("date in timestamp (milliseconds)")
-            .setRequired(true)
-        )
-    ),
-  // execute the command
-  async execute(interaction) {
-    await interaction.deferReply({ ephemeral: true });
-    try {
-      interaction.editReply({
-        content: `Will notice you after the process.`,
-        ephemeral: true,
-      });
-      await insertMessagesByCommand(interaction);
-      noticeToUser(interaction);
-    } catch (e) {
-      console.log("====", e);
-      return interaction.editReply({
-        content: `Something went wrong!`,
-        ephemeral: true,
-      });
-    }
-  },
-};
-
-/**
- * insert messages to database
- */
-
-async function insertMessagesByCommand(interaction, channelId = null) {
-  const guild = await interaction.client.guilds.cache.get(interaction.guildId);
-  const channel = interaction.client.channels.cache.get(
-    channelId ? channelId : interaction.channelId
-  );
-
-  if (!channel) return null;
-  let messages = [];
-  switch (interaction.options._subcommand) {
-    case "by-count":
-      const limit = interaction.options.getString("count");
-      messages = await fetchMessages(guild, channel, "count", { limit });
-      break;
-    case "by-date":
-      const since = interaction.options.getString("since");
-      messages = await fetchMessages(guild, channel, "date", { since });
-      break;
-    case "by-role":
-      const roles = interaction.options.getString("roles");
-      messages = await fetchMessages(guild, channel, "role", { roles });
-      break;
-    case "by-channel":
-      const channels = interaction.options.getString("channels");
-      messages = await fetchMessages(guild, channel, "channels", { channels });
-      break;
-
-    default:
-      throw "wrong command";
-  }
-
-  const guildID = interaction.guildId;
-  insertMessages(guildID, messages);
-  return messages;
-}
-
 const noticeToUser = (interaction) => {
   const id = interaction.user.id;
   interaction.client.users.cache.get(id).send("Successfully extracted!!!");
 };
+
+module.exports = {
+  data: fetchMessages
+}

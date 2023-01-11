@@ -1,46 +1,53 @@
-const database =
-  process.env.DATABASE ??
-  "mongodb+srv://root:root@cluster0.mgy22jx.mongodb.net/test";
-const { databaseService, rawInfoService } = require("tc-dbcomm");
+const { databaseService, rawInfoService, guildService } = require("tc-dbcomm");
+
+// get database address
+const getDB = () => {
+  const db_address = process.env.DB_ADDRESS;
+  const db_user = process.env.DB_USER;
+  const db_password = process.env.DB_PASSWORD;
+  const database = `mongodb://${db_user}:${db_password}@${db_address}/?authMechanism=DEFAULT&tls=false`;
+  return database;
+}
 
 // get users with id and value
 const getInteractions = async (id, value) => {
-    let usernames = [];
-    let users = await value.users.fetch();
-    users = users.forEach((user) => {
-      usernames.push(`${user.username}#${user.discriminator}`);
-    });
-    return [usernames.toString(), id];
-  };
-  
+  let usernames = [];
+  let users = await value.users.fetch();
+  users = users.forEach((user) => {
+    usernames.push(`${user.username}#${user.discriminator}`);
+  });
+  return [usernames.toString(), id];
+};
+
+// convert message to rawinfo depends on schema
 const messageToRawinfo = async (m) => {
-  const user_regexp = new RegExp("<@(\\d+)>", "g");
-  const role_regexp = new RegExp("<@&(\\d+)>", "g");
-  let reactions = [];
+    const user_regexp = new RegExp("<@(\\d+)>", "g");
+    const role_regexp = new RegExp("<@&(\\d+)>", "g");
+    let reactions = [];
   m.reactions.cache.forEach((value, id) => {
     reactions.push(getInteractions(id, value));
   });
-
+  
   reactions = await Promise.all(reactions);
-
+  
   let users_mentions = m.content.match(user_regexp);
   let roles_mentions = m.content.match(role_regexp);
   if (users_mentions)
-    users_mentions = users_mentions.map((s) => {
-      const id = s.replace(/[<>@]/g, "");
-      const user = m.mentions.users.get(id);
-      const username = `${user.username}#${user.discriminator}`;
-      m.content = m.content.replace(new RegExp(s, "g"), username);
-      return username;
-    });
+  users_mentions = users_mentions.map((s) => {
+    const id = s.replace(/[<>@]/g, "");
+    const user = m.mentions.users.get(id);
+    const username = `${user.username}#${user.discriminator}`;
+    m.content = m.content.replace(new RegExp(s, "g"), username);
+    return username;
+  });
   if (roles_mentions)
-    roles_mentions = roles_mentions.map((s) => {
-      const id = s.replace(/[<>@&]/g, "");
-      const role = m.mentions.roles.get(id);
-      const roleName = role ? `@${role.name}` : `@deleted-role`;
-      m.content = m.content.replace(new RegExp(s, "g"), roleName);
-      return roleName;
-    });
+  roles_mentions = roles_mentions.map((s) => {
+    const id = s.replace(/[<>@&]/g, "");
+    const role = m.mentions.roles.get(id);
+    const roleName = role ? `@${role.name}` : `@deleted-role`;
+    m.content = m.content.replace(new RegExp(s, "g"), roleName);
+    return roleName;
+  });
   const reply = { replied_User: "", reference_Message: "" };
   if (m.type === "REPLY") {
     reply.replied_User = `${m.mentions?.repliedUser?.username}#${m.mentions?.repliedUser?.discriminator}`;
@@ -60,7 +67,10 @@ const messageToRawinfo = async (m) => {
   };
   return data;
 };
+
+// insert message data into the database
 const insertMessages = async (guildID, messages) => {
+  const database = getDB();
   const connection = databaseService.connectionFactory(guildID, database);
   const promises = messages.map(async ({ id, value: m }, index) => {
     const data = await messageToRawinfo(m);
@@ -69,6 +79,18 @@ const insertMessages = async (guildID, messages) => {
   await Promise.all(promises);
 };
 
+// fetch guild settings
+const fetchSettings = async () => {
+  
+  const guildId = process.env.GUILD;
+  const database = getDB();
+  
+  const connection = databaseService.connectionFactory(guildId, database);
+    const settings = await guildService.fetchGuild(connection);
+    
+    return settings;
+}
 module.exports = {
-  insertMessages: insertMessages,
+  insertMessages,
+  fetchSettings
 };
