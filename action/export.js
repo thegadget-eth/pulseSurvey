@@ -76,7 +76,6 @@ const fetchMessages = async (
     // export by-date
     
     for (let i = 0; i < messages.length; i++) {
-      console.log(messages[i].value.createdTimestamp, since)
       if (messages[i].value.createdTimestamp < since) {
         sum_messages.push(...messages.slice(0, i));
         return sum_messages;
@@ -87,11 +86,15 @@ const fetchMessages = async (
   }
 };
 
-const noticeToUser = (interaction) => {
-  const id = interaction.user.id;
-  interaction.client.users.cache.get(id).send("Successfully extracted!!!");
+const noticeToUser = (client, userId, message) => {
+  try {
+    client.users.cache.get(userId).send(message);
+  } catch(e) {
+    console.log("No such user");
+  }
 };
 
 module.exports = {
-  fetchMessages
+  fetchMessages,
+  noticeToUser
 }

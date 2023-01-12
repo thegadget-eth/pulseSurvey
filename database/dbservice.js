@@ -101,7 +101,6 @@ const extractMissed = async(guildId, messages) => {
     })
   });
   await promise;
-  console.log("extract missed", missed);
   return missed;
 }
 
