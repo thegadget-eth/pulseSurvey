@@ -1,6 +1,6 @@
 const fs = require("node:fs");
 const path = require("node:path");
-const {fetchSettings} = require("./database/dbservice.js");
+const {fetchSettings, extractMissed, insertMessages} = require("./database/dbservice.js");
 const {fetchMessages} = require("./action/export.js");
 
 const { Client, Collection, Intents } = require("discord.js");
@@ -29,8 +29,8 @@ const discordLogin = () => {
 }
 
 
-// check missing messages and store it into the database
-const checkAndFetch = async (setting) => {
+// get required messages from discord
+const fetch = async (setting) => {
   const {guildId, selectedChannels, period} = setting;
   try {
     const channels = selectedChannels.map(item => item.channelName);
@@ -38,21 +38,34 @@ const checkAndFetch = async (setting) => {
     const timeStamp = date.getTime();
 
     const guild = await client.guilds.fetch(guildId)
-    const messages = await fetchMessages(guild, null, "channels", {channels: channels, since:timeStamp})
-    // const missedMessages = 
-  } catch(e) {}
+    const messages = await fetchMessages(guild, null, "channels", {channels: channels, since:timeStamp});
+    return messages;
+  } catch(e) {
+    return [];
+  }
 }
 
-// fetch all guild settings
-const guildSettings = async() => {
-  
+const app = async() => {
+  // fetch all guild settings
+  discordLogin();
   const settings = await fetchSettings();
-  settings.forEach(setting => {
-    checkAndFetch(setting);
+  // iterate all settings
+  settings.forEach(async (setting) => {
+    const {guildId} = setting;
+    // fetch messages from discord
+    const messages = await fetch(setting);
+    console.log("feched: ", messages.length);
+    // extract missed messages
+    const missed = await extractMissed(guildId, messages);
+    console.log("extracted: ", missed.length);
+    // insert messages to the database
+    insertMessages(guildId, missed);
+    console.log("setting");
   });
+  console.log("end");
+  
 }
 
 
-discordLogin();
 
-guildSettings();
+app();
