@@ -9,7 +9,7 @@ const intents = new Intents(32767);
 const client = new Client({ intents });
 
 // login to discord
-const discordLogin = () => {
+const discordLogin = async () => {
   
   const eventsPath = path.join(__dirname, "events");
   const eventFiles = fs
@@ -25,7 +25,7 @@ const discordLogin = () => {
       client.on(event.name, (...args) => event.execute(...args));
     }
   }
-  client.login(process.env.TOKEN);
+  await client.login(process.env.TOKEN);
 }
 
 
@@ -47,23 +47,24 @@ const fetch = async (setting) => {
 
 const app = async() => {
   // fetch all guild settings
-  discordLogin();
+  await discordLogin();
   const settings = await fetchSettings();
   // iterate all settings
+  let promise = Promise.resolve();
   settings.forEach(async (setting) => {
-    const {guildId} = setting;
-    // fetch messages from discord
-    const messages = await fetch(setting);
-    console.log("feched: ", messages.length);
-    // extract missed messages
-    const missed = await extractMissed(guildId, messages);
-    console.log("extracted: ", missed.length);
-    // insert messages to the database
-    insertMessages(guildId, missed);
-    console.log("setting");
+    promise = promise.then(async(_) => {
+      // const setting = settings[2];
+      const {guildId} = setting;
+      // fetch messages from discord
+      const messages = await fetch(setting);
+      // extract missed messages
+      const missed = await extractMissed(guildId, messages);
+      // insert messages to the database
+      insertMessages(guildId, missed);
+    });
   });
+  await promise;
   console.log("end");
-  
 }
 
 

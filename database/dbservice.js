@@ -91,11 +91,16 @@ const fetchSettings = async () => {
 const extractMissed = async(guildId, messages) => {
   const database = getDB();
   const connection = databaseService.connectionFactory(guildId, database);
-  console.log(messages)
-  const missed = messages.filter(async (message) => {
-    const date = new Date(message.value.createdTimestamp);
-    return !(await rawInfoService.checkExist(connection, date) === false);
+  let promise = Promise.resolve();
+  let missed = [];
+  await messages.forEach((message) => {
+    promise = promise.then(async() => {
+      const date = new Date(message.value.createdTimestamp);
+      if(await rawInfoService.checkExist(connection, date)) return ;
+      missed.push(message);
+    })
   });
+  await promise;
   console.log("extract missed", missed);
   return missed;
 }

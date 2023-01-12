@@ -38,7 +38,7 @@ const fetchMessages = async (
             const threads = channel.threads.cache;
             // iterate all threads
             let threadPromise = Promise.resolve();
-
+            
             threads.forEach(async (thread) => {
               threadPromise = threadPromise.then(async () => {
                 // fetch messages from thread
