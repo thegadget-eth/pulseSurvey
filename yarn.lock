@@ -1703,8 +1703,8 @@
     "inherits" "^2.0.3"
     "readable-stream" "^3.1.1"
 
-"tc-dbcomm@github:Behzad-rabiei/tc-dbComm#RnDAO-main-database":
-  "resolved" "git+ssh://git@github.com/Behzad-rabiei/tc-dbComm.git#8c2ede90310e754a8c2e98db73ee7b674a08694f"
+"tc-dbcomm@github:RnDAO/tc-dbComm":
+  "resolved" "git+ssh://git@github.com/RnDAO/tc-dbComm.git#1a867c95db43416abc8d0a7ea04c94cf63087182"
   "version" "1.0.0"
   dependencies:
     "discord.js" "^14.7.1"

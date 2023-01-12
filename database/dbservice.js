@@ -1,40 +1,9 @@
-const database =
-  process.env.DATABASE ??
-  "mongodb+srv://root:root@cluster0.mgy22jx.mongodb.net/test";
-const { databaseService, rawInfoService } = require("tc-dbcomm");
+const db_address = process.env.DB_ADDRESS;
+const db_user = process.env.DB_USER;
+const db_password = process.env.DB_PASSWORD;
 
-/**
- * @dev convert timestamp to formated date
- * @param timestamp given timpstamp
- * @result_format dd month(as string) yyyy HH:MM:SS
- * @result_example 31 Oct 2022 15:15:26
- */
-const timeConverter = (timestamp) => {
-  var a = new Date(timestamp);
-  var months = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-  ];
-  var year = a.getFullYear();
-  var month = months[a.getMonth()];
-  var date = a.getDate();
-  var hour = a.getHours();
-  var min = a.getMinutes();
-  var sec = a.getSeconds();
-  var time =
-    date + " " + month + " " + year + " " + hour + ":" + min + ":" + sec;
-  return time;
-};
+const database = `mongodb://${db_user}:${db_password}@${db_address}/?authMechanism=DEFAULT&tls=false`;
+const { databaseService, rawInfoService } = require("tc-dbcomm");
 
 // get users with id and value
 const getInteractions = async (id, value) => {
@@ -82,7 +51,7 @@ const messageToRawinfo = async (m) => {
   m.content = m.content.replace(new RegExp(",", "g"), " ");
   const data = {
     type: m.type,
-    created_At: timeConverter(m.createdTimestamp),
+    created_at: new Date(m.createdTimestamp),
     author: `${m.author.username}#${m.author.discriminator}`,
     content: m.content,
     user_Mentions: users_mentions ? users_mentions.join(",") : users_mentions,
