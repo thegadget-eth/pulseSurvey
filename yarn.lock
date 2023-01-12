@@ -1703,8 +1703,8 @@
     "inherits" "^2.0.3"
     "readable-stream" "^3.1.1"
 
-"tc-dbcomm@github:magicpalmtree/tc-dbComm#magic_update_schema":
-  "resolved" "git+ssh://git@github.com/magicpalmtree/tc-dbComm.git#4867b6f668fbb776ca90210693ad3ece718608de"
+"tc-dbcomm@github:RnDAO/tc-dbComm":
+  "resolved" "git+ssh://git@github.com/RnDAO/tc-dbComm.git#4db1d7e16b1807637c3cd6dcba0cd492e3172810"
   "version" "1.0.0"
   dependencies:
     "discord.js" "^14.7.1"
