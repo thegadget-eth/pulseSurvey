@@ -60,12 +60,9 @@ const app = async() => {
       const missed = await extractMissed(guildId, messages);
       // insert messages to the database
       await insertMessages(guildId, missed);
-      noticeToUser(client, user, "Extracted successfully.");
     });
   });
   await promise;
 }
-
-
 
 app();
