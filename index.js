@@ -1,9 +1,9 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const {fetchSettings, extractMissed, insertMessages} = require("./database/dbservice.js");
-const {fetchMessages, noticeToUser} = require("./action/export.js");
+const {fetchMessages} = require("./action/export.js");
 
-const { Client, Collection, Intents } = require("discord.js");
+const { Client, Intents } = require("discord.js");
 require("dotenv").config();
 const intents = new Intents(32767);
 const client = new Client({ intents });
@@ -53,7 +53,7 @@ const app = async() => {
   let promise = Promise.resolve();
   settings.forEach(async (setting) => {
     promise = promise.then(async(_) => {
-      const {guildId, user} = setting;
+      const {guildId} = setting;
       // fetch messages from discord
       const messages = await fetch(setting);
       // extract missed messages

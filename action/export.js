@@ -1,4 +1,3 @@
-const { insertMessages } = require("../database/dbservice");
 const waitForNextChannel = 1000; // wait for 1s
 
 
@@ -86,15 +85,6 @@ const fetchMessages = async (
   }
 };
 
-const noticeToUser = (client, userId, message) => {
-  try {
-    client.users.cache.get(userId).send(message);
-  } catch(e) {
-    console.log("No such user");
-  }
-};
-
 module.exports = {
   fetchMessages,
-  noticeToUser
 }
