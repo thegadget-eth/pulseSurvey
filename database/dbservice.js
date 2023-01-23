@@ -1,4 +1,4 @@
-const { databaseService, rawInfoService, guildService } = require("tc-dbcomm");
+const { databaseService, rawInfoService, guildService, getRangeId } = require("tc-dbcomm");
 
 // get database address
 const getDB = () => {
@@ -64,6 +64,7 @@ const messageToRawinfo = async (m) => {
     reactions: reactions.join("&"),
     ...reply,
     channelId: m.channelId,
+    messageId: m.messageId
   };
   return data;
 };
@@ -72,7 +73,7 @@ const messageToRawinfo = async (m) => {
 const insertMessages = async (guildID, messages) => {
   const database = getDB();
   const connection = databaseService.connectionFactory(guildID, database);
-  const promises = messages.map(async ({ id, value: m }, index) => {
+  const promises = messages.map(async ({ id, value: m }) => {
     const data = await messageToRawinfo(m);
     rawInfoService.createRawInfo(connection, data);
   });
@@ -88,24 +89,14 @@ const fetchSettings = async () => {
   return settings;
 }
 
-const extractMissed = async(guildId, messages) => {
+const getRange = async (guildID) => {
   const database = getDB();
-  const connection = databaseService.connectionFactory(guildId, database);
-  let promise = Promise.resolve();
-  let missed = [];
-  await messages.forEach((message) => {
-    promise = promise.then(async() => {
-      const date = new Date(message.value.createdTimestamp);
-      if(await rawInfoService.checkExist(connection, date)) return ;
-      missed.push(message);
-    })
-  });
-  await promise;
-  return missed;
+  const connection = databaseService.connectionFactory(guildID, database);
+  return await rawInfoService.getRangeId(connection);
 }
 
 module.exports = {
   insertMessages,
   fetchSettings,
-  extractMissed
+  getRange
 };

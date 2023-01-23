@@ -9,16 +9,17 @@ const waitForNextChannel = 1000; // wait for 1s
  * @param limit limit fetching messages
  * @param since filtering param by date
  * @param channels filtering param by channel
+ * @param before oldest message id
+ * @param after latest message id
  * @return messages
  */
 const fetchMessages = async (
   guild,
   channel,
   type,
-  { since = null, channels = null } = {}
+  { since = null, channels = null, before = null, after = null } = {}
 ) => {
   let sum_messages = []; // for collecting messages
-  let last_id;
   if (type === "channels") {
     let promise = Promise.resolve();
     const channelList = channels;
@@ -30,21 +31,21 @@ const fetchMessages = async (
           channel.type === "GUILD_TEXT" &&
           (channels == null || channelList.includes(channelName))
           ) {
-          try {
-            //fetch all messages from the channel
-            const messages = await fetchMessages(guild, channel, "date", {since: since});
-            sum_messages.push(...messages);
-            const threads = channel.threads.cache;
-            // iterate all threads
-            let threadPromise = Promise.resolve();
-            
-            threads.forEach(async (thread) => {
-              threadPromise = threadPromise.then(async () => {
-                // fetch messages from thread
-                const messages = await fetchMessages(guild, thread, "date", {since: since});
-                sum_messages.push(...messages);
+            try {
+              //fetch all messages from the channel
+              const messages = await fetchMessages(guild, channel, "date", {since: since, before: before, after: after});
+              sum_messages.push(...messages);
+              const threads = channel.threads.cache;
+              // iterate all threads
+              let threadPromise = Promise.resolve();
+              
+              threads.forEach(async (thread) => {
+                threadPromise = threadPromise.then(async () => {
+                  // fetch messages from thread
+                  const messages = await fetchMessages(guild, thread, "date", {since: since, before: before, after: after});
+                  sum_messages.push(...messages);
+                });
               });
-            });
             await threadPromise;
           } catch (e) {
           }
@@ -58,7 +59,29 @@ const fetchMessages = async (
     await promise;
     return sum_messages;
   }
-  // for specific one channel
+  
+  // extract recent messages from one channel
+  let last_id = after;
+  while (true) {
+    const options = { limit: 100 };
+    if (last_id) {
+      options.after = last_id;
+    }
+    let messages = [];
+    try {
+      const messagesMap = await channel.messages.fetch(options);
+      messages = Array.from(messagesMap, ([id, value]) => ({ id, value }));
+    } catch(e) {
+    }
+    if (messages.length === 0) break;
+    sum_messages.push(...messages);
+    // console.log("id ---> ", messages[0].id, messages[messages.length - 1].id);
+    // console.log(messages);
+    last_id = messages[0].id;
+  }
+
+  last_id = before;
+  // extract old messages from one channel
   while (true) {
     // split for number of messages to fetch with limit
     const options = { limit: 100 };
@@ -72,8 +95,6 @@ const fetchMessages = async (
     } catch(e) {
     }
     if (messages.length === 0) return sum_messages;
-    // export by-date
-    
     for (let i = 0; i < messages.length; i++) {
       if (messages[i].value.createdTimestamp < since) {
         sum_messages.push(...messages.slice(0, i));
@@ -83,6 +104,7 @@ const fetchMessages = async (
     sum_messages.push(...messages);
     last_id = messages[messages.length - 1].id;
   }
+
 };
 
 module.exports = {
