@@ -31,13 +31,14 @@ const discordLogin = async () => {
 // get required messages from discord
 const fetch = async (setting) => {
   const {guildId, selectedChannels, period} = setting;
+  if(period == null) return [];
   try {
     const channels = selectedChannels.map(item => item.channelName);
     const guild = await client.guilds.fetch(guildId);
     const storedIdRange = await getRange(guild);
     const date = new Date(period);
     const timeStamp = date.getTime();
-    const messages = await fetchMessages(guild, null, "channels", {channels: channels, after: storedIdRange[1].messageId, before: storedIdRange[0].messageId, since: timeStamp});
+    const messages = await fetchMessages(guild, null, "channels", {channels: channels, after: storedIdRange[1]?.messageId, before: storedIdRange[0]?.messageId, since: timeStamp});
     return messages;
   } catch(e) {
     return [];
@@ -55,7 +56,6 @@ const app = async() => {
       const {guildId} = setting;
       // fetch missed messages from discord
       const messages = await fetch(setting);
-      console.log(messages.length)
       // insert messages to the database
       await insertMessages(guildId, messages);
     });

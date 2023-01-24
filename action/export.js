@@ -62,7 +62,7 @@ const fetchMessages = async (
   
   // extract recent messages from one channel
   let last_id = after;
-  while (true) {
+  while (true && after != null) {
     const options = { limit: 100 };
     if (last_id) {
       options.after = last_id;
@@ -75,11 +75,8 @@ const fetchMessages = async (
     }
     if (messages.length === 0) break;
     sum_messages.push(...messages);
-    // console.log("id ---> ", messages[0].id, messages[messages.length - 1].id);
-    // console.log(messages);
     last_id = messages[0].id;
   }
-
   last_id = before;
   // extract old messages from one channel
   while (true) {

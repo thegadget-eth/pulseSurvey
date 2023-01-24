@@ -64,7 +64,7 @@ const messageToRawinfo = async (m) => {
     reactions: reactions.join("&"),
     ...reply,
     channelId: m.channelId,
-    messageId: m.messageId
+    messageId: m.id
   };
   return data;
 };
