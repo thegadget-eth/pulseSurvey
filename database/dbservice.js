@@ -82,6 +82,7 @@ const insertMessages = async (guildID, messages) => {
     }
   });
   await Promise.all(promises);
+  await connection.close();
   return countNewMessages;
 };
 
@@ -91,13 +92,16 @@ const fetchSettings = async () => {
   const database = getDB();
   const connection = databaseService.connectionFactory(RnDAO, database);
   const settings = await guildService.fetchGuild(connection);
+  await connection.close();
   return settings;
 };
 
 const getRange = async (guildID) => {
   const database = getDB();
   const connection = databaseService.connectionFactory(guildID, database);
-  return await rawInfoService.getRangeId(connection);
+  const range = await rawInfoService.getRangeId(connection);
+  await connection.close();
+  return range;
 };
 
 module.exports = {
