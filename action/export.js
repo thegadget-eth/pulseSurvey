@@ -1,5 +1,3 @@
-const waitForNextChannel = 1000; // wait for 1s
-
 /**
  * @dev fetch messages by filter
  * @param guild discord guild
@@ -20,51 +18,38 @@ const fetchMessages = async (
 ) => {
   let sum_messages = []; // for collecting messages
   if (type === "channels") {
-    let promise = Promise.resolve();
     const channelList = channels;
-    console.log(channelList);
     // iterate all channels
-    guild.channels.cache.forEach(async (channel) => {
+    const promises = guild.channels.cache.map(async (channel) => {
       const channelId = channel.id;
-      promise = promise.then(async () => {
-        if (
-          channel.type === "GUILD_TEXT" &&
-          (channels == null || channelList.includes(channelId))
-        ) {
-          try {
-            console.log(channelId);
-            //fetch all messages from the channel
-            const messages = await fetchMessages(guild, channel, "date", {
+      if (
+        channel.type === "GUILD_TEXT" &&
+        (channels == null || channelList.includes(channelId))
+      ) {
+        try {
+          //fetch all messages from the channel
+          const messages = await fetchMessages(guild, channel, "date", {
+            since: since,
+            before: before,
+            after: after,
+          });
+          sum_messages.push(...messages);
+          const threads = channel.threads.cache;
+          // iterate all threads
+          const threadPromises = threads.map(async (thread) => {
+            // fetch messages from thread
+            const messages = await fetchMessages(guild, thread, "date", {
               since: since,
               before: before,
               after: after,
             });
             sum_messages.push(...messages);
-            const threads = channel.threads.cache;
-            // iterate all threads
-            let threadPromise = Promise.resolve();
-
-            threads.forEach(async (thread) => {
-              threadPromise = threadPromise.then(async () => {
-                // fetch messages from thread
-                const messages = await fetchMessages(guild, thread, "date", {
-                  since: since,
-                  before: before,
-                  after: after,
-                });
-                sum_messages.push(...messages);
-              });
-            });
-            await threadPromise;
-          } catch (e) {}
-        }
-      });
-      // dealy between fetching channels
-      return new Promise(function (resolve) {
-        setTimeout(resolve, waitForNextChannel);
-      });
+          });
+          await Promise.all(threadPromises);
+        } catch (e) {}
+      }
     });
-    await promise;
+    await Promise.all(promises);
     return sum_messages;
   }
 
