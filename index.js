@@ -58,17 +58,23 @@ const app = async () => {
   const settings = await fetchSettings();
   const promises = settings.map(async (setting) => {
     const { guildId, name } = setting;
-    // fetch missed messages from discord
-    const messages = await fetch(setting);
-    // insert messages to the database
-    const numberOfNewMessage = await insertMessages(guildId, messages);
-    if (numberOfNewMessage === 0) {
-      console.log("No new messages are fetched from ", name);
+    const guild = client.guilds.cache.get(guildId);
+    if (guild) {
+      // fetch missed messages from discord
+      const messages = await fetch(setting);
+      // insert messages to the database
+      const numberOfNewMessage = await insertMessages(guildId, messages);
+
+      if (numberOfNewMessage === 0) {
+        console.log("No new messages are fetched from ", name);
+      } else {
+        console.log(
+          `Successfully stored ${numberOfNewMessage} messages from`,
+          name
+        );
+      }
     } else {
-      console.log(
-        `Successfully stored ${numberOfNewMessage} messages from`,
-        name
-      );
+      console.log(`The bot is disconnected from the server named ${name}`);
     }
   });
   await Promise.all(promises);
