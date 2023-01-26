@@ -1,4 +1,4 @@
-const { databaseService, rawInfoService, guildService, getRangeId } = require("tc-dbcomm");
+const { databaseService, rawInfoService, guildService } = require("tc-dbcomm");
 
 // get database address
 const getDB = () => {
@@ -7,7 +7,7 @@ const getDB = () => {
   const db_password = process.env.DB_PASSWORD;
   const database = `mongodb://${db_user}:${db_password}@${db_address}/?authMechanism=DEFAULT&tls=false`;
   return database;
-}
+};
 
 // get users with id and value
 const getInteractions = async (id, value) => {
@@ -21,33 +21,33 @@ const getInteractions = async (id, value) => {
 
 // convert message to rawinfo depends on schema
 const messageToRawinfo = async (m) => {
-    const user_regexp = new RegExp("<@(\\d+)>", "g");
-    const role_regexp = new RegExp("<@&(\\d+)>", "g");
-    let reactions = [];
+  const user_regexp = new RegExp("<@(\\d+)>", "g");
+  const role_regexp = new RegExp("<@&(\\d+)>", "g");
+  let reactions = [];
   m.reactions.cache.forEach((value, id) => {
     reactions.push(getInteractions(id, value));
   });
-  
+
   reactions = await Promise.all(reactions);
-  
+
   let users_mentions = m.content.match(user_regexp);
   let roles_mentions = m.content.match(role_regexp);
   if (users_mentions)
-  users_mentions = users_mentions.map((s) => {
-    const id = s.replace(/[<>@]/g, "");
-    const user = m.mentions.users.get(id);
-    const username = `${user.username}#${user.discriminator}`;
-    m.content = m.content.replace(new RegExp(s, "g"), username);
-    return username;
-  });
+    users_mentions = users_mentions.map((s) => {
+      const id = s.replace(/[<>@]/g, "");
+      const user = m.mentions.users.get(id);
+      const username = `${user.username}#${user.discriminator}`;
+      m.content = m.content.replace(new RegExp(s, "g"), username);
+      return username;
+    });
   if (roles_mentions)
-  roles_mentions = roles_mentions.map((s) => {
-    const id = s.replace(/[<>@&]/g, "");
-    const role = m.mentions.roles.get(id);
-    const roleName = role ? `@${role.name}` : `@deleted-role`;
-    m.content = m.content.replace(new RegExp(s, "g"), roleName);
-    return roleName;
-  });
+    roles_mentions = roles_mentions.map((s) => {
+      const id = s.replace(/[<>@&]/g, "");
+      const role = m.mentions.roles.get(id);
+      const roleName = role ? `@${role.name}` : `@deleted-role`;
+      m.content = m.content.replace(new RegExp(s, "g"), roleName);
+      return roleName;
+    });
   const reply = { replied_User: "", reference_Message: "" };
   if (m.type === "REPLY") {
     reply.replied_User = `${m.mentions?.repliedUser?.username}#${m.mentions?.repliedUser?.discriminator}`;
@@ -64,20 +64,25 @@ const messageToRawinfo = async (m) => {
     reactions: reactions.join("&"),
     ...reply,
     channelId: m.channelId,
-    messageId: m.id
+    messageId: m.id,
   };
   return data;
 };
 
-// insert message data into the database
+// insert message data into the database and return number of messages newly added
 const insertMessages = async (guildID, messages) => {
   const database = getDB();
   const connection = databaseService.connectionFactory(guildID, database);
+  let countNewMessages = 0;
   const promises = messages.map(async ({ id, value: m }) => {
     const data = await messageToRawinfo(m);
-    rawInfoService.createRawInfo(connection, data);
+    const response = await rawInfoService.createRawInfo(connection, data);
+    if (response !== false) {
+      countNewMessages++;
+    }
   });
   await Promise.all(promises);
+  return countNewMessages;
 };
 
 // fetch different guild settings from RnDAO server
@@ -87,16 +92,16 @@ const fetchSettings = async () => {
   const connection = databaseService.connectionFactory(guildName, database);
   const settings = await guildService.fetchGuild(connection);
   return settings;
-}
+};
 
 const getRange = async (guildID) => {
   const database = getDB();
   const connection = databaseService.connectionFactory(guildID, database);
   return await rawInfoService.getRangeId(connection);
-}
+};
 
 module.exports = {
   insertMessages,
   fetchSettings,
-  getRange
+  getRange,
 };
