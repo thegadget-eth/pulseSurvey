@@ -87,9 +87,9 @@ const insertMessages = async (guildID, messages) => {
 
 // fetch different guild settings from RnDAO server
 const fetchSettings = async () => {
-  const guildName = "RnDAO";
+  const RnDAO = process.env.RnDAO;
   const database = getDB();
-  const connection = databaseService.connectionFactory(guildName, database);
+  const connection = databaseService.connectionFactory(RnDAO, database);
   const settings = await guildService.fetchGuild(connection);
   return settings;
 };

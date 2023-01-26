@@ -35,7 +35,7 @@ const discordLogin = async () => {
 const fetch = async (setting) => {
   const { guildId, selectedChannels, period } = setting;
   try {
-    const channels = selectedChannels.map((item) => item.channelName);
+    const channels = selectedChannels.map((item) => item.channelId);
     const guild = await client.guilds.fetch(guildId);
     const storedIdRange = await getRange(guild);
     const date = new Date(period);
