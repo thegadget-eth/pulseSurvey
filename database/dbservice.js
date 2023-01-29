@@ -1,20 +1,25 @@
-const db_address = process.env.DB_ADDRESS;
-const db_user = process.env.DB_USER;
-const db_password = process.env.DB_PASSWORD;
+const { databaseService, rawInfoService, guildService } = require("tc-dbcomm");
 
-const database = `mongodb://${db_user}:${db_password}@${db_address}/?authMechanism=DEFAULT&tls=false`;
-const { databaseService, rawInfoService } = require("tc-dbcomm");
+// get database address
+const getDB = () => {
+  const db_address = process.env.DB_ADDRESS;
+  const db_user = process.env.DB_USER;
+  const db_password = process.env.DB_PASSWORD;
+  const database = `mongodb://${db_user}:${db_password}@${db_address}/?authMechanism=DEFAULT&tls=false`;
+  return database;
+};
 
 // get users with id and value
 const getInteractions = async (id, value) => {
-    let usernames = [];
-    let users = await value.users.fetch();
-    users = users.forEach((user) => {
-      usernames.push(`${user.username}#${user.discriminator}`);
-    });
-    return [usernames.toString(), id];
-  };
-  
+  let usernames = [];
+  let users = await value.users.fetch();
+  users = users.forEach((user) => {
+    usernames.push(`${user.username}#${user.discriminator}`);
+  });
+  return [usernames.toString(), id];
+};
+
+// convert message to rawinfo depends on schema
 const messageToRawinfo = async (m) => {
   const user_regexp = new RegExp("<@(\\d+)>", "g");
   const role_regexp = new RegExp("<@&(\\d+)>", "g");
@@ -59,18 +64,48 @@ const messageToRawinfo = async (m) => {
     reactions: reactions.join("&"),
     ...reply,
     channelId: m.channelId,
+    messageId: m.id,
   };
   return data;
 };
+
+// insert message data into the database and return number of messages newly added
 const insertMessages = async (guildID, messages) => {
+  const database = getDB();
   const connection = databaseService.connectionFactory(guildID, database);
-  const promises = messages.map(async ({ id, value: m }, index) => {
+  let countNewMessages = 0;
+  const promises = messages.map(async ({ id, value: m }) => {
     const data = await messageToRawinfo(m);
-    rawInfoService.createRawInfo(connection, data);
+    const response = await rawInfoService.createRawInfo(connection, data);
+    if (response !== false) {
+      countNewMessages++;
+    }
   });
   await Promise.all(promises);
+  await connection.close();
+  return countNewMessages;
+};
+
+// fetch different guild settings from RnDAO server
+const fetchSettings = async () => {
+  const RnDAO = process.env.RnDAO;
+  const database = getDB();
+  const connection = databaseService.connectionFactory(RnDAO, database);
+  const settings = await guildService.fetchGuild(connection);
+  await connection.close();
+  return settings;
+};
+
+const getRange = async (guildID) => {
+  const database = getDB();
+  const connection = databaseService.connectionFactory(guildID, database);
+  const range = await rawInfoService.getRangeId(connection);
+  await connection.close();
+  return range;
 };
 
 module.exports = {
-  insertMessages: insertMessages,
+  insertMessages,
+  fetchSettings,
+  getRange,
 };
