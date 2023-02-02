@@ -4,6 +4,8 @@ const {
   fetchSettings,
   getRange,
   insertMessages,
+  connectDB,
+  updateGuild,
 } = require("./database/dbservice.js");
 const { fetchMessages } = require("./action/export.js");
 
@@ -52,29 +54,48 @@ const fetch = async (setting) => {
   }
 };
 
+// check the bot is connected to the guilds and update status
+const checkBotStatus = async (settings) => {
+  const promises = settings.map(async (setting) => {
+    const { guildId } = setting;
+    const guild = client.guilds.cache.get(guildId);
+    if (!guild) {
+      setting.isDisconnected = true;
+      await updateGuild(guildId, setting);
+    }
+  });
+  return await Promise.all(promises);
+};
+
+const toggleExtraction = async (setting, status) => {
+  const { guildId } = setting;
+  setting.isInProgress = status;
+  await updateGuild(guildId, setting);
+};
+
 const app = async () => {
   // fetch all guild settings
   await discordLogin();
+  await connectDB();
+  // only fetch connected guilds
   const settings = await fetchSettings();
-  const promises = settings.map(async (setting) => {
+  await checkBotStatus(settings);
+  promises = settings.map(async (setting) => {
     const { guildId, name } = setting;
-    const guild = client.guilds.cache.get(guildId);
-    if (guild) {
-      // fetch missed messages from discord
-      const messages = await fetch(setting);
-      // insert messages to the database
-      const numberOfNewMessage = await insertMessages(guildId, messages);
 
-      if (numberOfNewMessage === 0) {
-        console.log("No new messages are fetched from ", name);
-      } else {
-        console.log(
-          `Successfully stored ${numberOfNewMessage} messages from`,
-          name
-        );
-      }
+    await toggleExtraction(setting, true);
+    // fetch missed messages from discord
+    const messages = await fetch(setting);
+    // insert messages to the database
+    const numberOfNewMessage = await insertMessages(guildId, messages);
+    await toggleExtraction(setting, false);
+    if (numberOfNewMessage === 0) {
+      console.log("No new messages are fetched from ", name);
     } else {
-      console.log(`The bot is disconnected from the server named ${name}`);
+      console.log(
+        `Successfully stored ${numberOfNewMessage} messages from`,
+        name
+      );
     }
   });
   await Promise.all(promises);
