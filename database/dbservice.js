@@ -28,6 +28,18 @@ const getInteractions = async (id, value) => {
   return [usernames.toString(), id];
 };
 
+// change format of date to YYYYMMDD
+const convertDateToYYYYMMDD = (d) => {
+  // convert 2 digit integer
+  d = new Date(d);
+  const pad = (s) => {
+    return s < 10 ? "0" + s : s % 100;
+  };
+  return (
+    "" + d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate())
+  );
+};
+
 // convert message to rawinfo depends on schema
 const messageToRawinfo = async (m) => {
   const user_regexp = new RegExp("<@(\\d+)>", "g");
@@ -64,7 +76,7 @@ const messageToRawinfo = async (m) => {
   m.content = m.content.replace(new RegExp(",", "g"), " ");
   const data = {
     type: m.type,
-    datetime: new Date(m.createdTimestamp).toLocaleDateString().substring(0, 6),
+    datetime: convertDateToYYYYMMDD(new Date(m.createdTimestamp)),
     author: `${m.author.username}#${m.author.discriminator}`,
     content: m.content,
     user_mentions: users_mentions ? users_mentions.join(",") : users_mentions,
