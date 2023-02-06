@@ -28,6 +28,18 @@ const getInteractions = async (id, value) => {
   return [usernames.toString(), id];
 };
 
+// change format of date to YYYYMMDD
+const convertDateToYYYYMMDD = (d) => {
+  // convert 2 digit integer
+  d = new Date(d);
+  const pad = (s) => {
+    return s < 10 ? "0" + s : s % 100;
+  };
+  return (
+    "" + d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate())
+  );
+};
+
 // convert message to rawinfo depends on schema
 const messageToRawinfo = async (m) => {
   const user_regexp = new RegExp("<@(\\d+)>", "g");
@@ -57,23 +69,24 @@ const messageToRawinfo = async (m) => {
       m.content = m.content.replace(new RegExp(s, "g"), roleName);
       return roleName;
     });
-  const reply = { replied_User: "", reference_Message: "" };
+  const reply = { replied_User: "" };
   if (m.type === "REPLY") {
     reply.replied_User = `${m.mentions?.repliedUser?.username}#${m.mentions?.repliedUser?.discriminator}`;
-    reply.reference_Message = m.reference?.messageId;
   }
   m.content = m.content.replace(new RegExp(",", "g"), " ");
   const data = {
     type: m.type,
-    created_at: new Date(m.createdTimestamp),
+    datetime: convertDateToYYYYMMDD(new Date(m.createdTimestamp)),
     author: `${m.author.username}#${m.author.discriminator}`,
     content: m.content,
-    user_Mentions: users_mentions ? users_mentions.join(",") : users_mentions,
-    roles_Mentions: roles_mentions ? roles_mentions.join(",") : roles_mentions,
+    user_mentions: users_mentions ? users_mentions.join(",") : users_mentions,
+    role_mentions: roles_mentions ? roles_mentions.join(",") : roles_mentions,
     reactions: reactions.join("&"),
     ...reply,
     channelId: m.channelId,
     messageId: m.id,
+    channel: m.channel.name,
+    thread: m.channel.type !== "GUILD_TEXT",
   };
   return data;
 };
