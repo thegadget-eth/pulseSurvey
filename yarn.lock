@@ -871,6 +871,13 @@
   "resolved" "https://registry.npmjs.org/@tokenizer/token/-/token-0.3.0.tgz"
   "version" "0.3.0"
 
+"@types/mongoose-unique-validator@^1.0.6":
+  "integrity" "sha512-IBZh2biw+vGK98BJJ+gQagEaZHYLk7kc5h2vIoirhqSyKbGjLPV1WCnJUpxfru3Veg+KozyEuoKAtoYGCHaG8A=="
+  "resolved" "https://registry.npmjs.org/@types/mongoose-unique-validator/-/mongoose-unique-validator-1.0.6.tgz"
+  "version" "1.0.6"
+  dependencies:
+    "mongoose" "^6.3.0"
+
 "@types/node-fetch@^2.6.1":
   "integrity" "sha512-oMqjURCaxoSIsHSr1E47QHzbmzNR5rK8McHuNb11BOM9cHcIK3Avy0s/b2JlXHoQGTYS3NsvWzV1M0iK7l0wbA=="
   "resolved" "https://registry.npmjs.org/@types/node-fetch/-/node-fetch-2.6.1.tgz"
@@ -1353,10 +1360,25 @@
   "resolved" "https://registry.npmjs.org/lodash.flatten/-/lodash.flatten-4.4.0.tgz"
   "version" "4.4.0"
 
+"lodash.foreach@^4.1.0":
+  "integrity" "sha512-aEXTF4d+m05rVOAUG3z4vZZ4xVexLKZGF0lIxuHZ1Hplpk/3B6Z1+/ICICYRLm7c41Z2xiejbkCkJoTlypoXhQ=="
+  "resolved" "https://registry.npmjs.org/lodash.foreach/-/lodash.foreach-4.5.0.tgz"
+  "version" "4.5.0"
+
+"lodash.get@^4.0.2":
+  "integrity" "sha512-z+Uw/vLuy6gQe8cfaFWD7p0wVv8fJl3mbzXh33RS+0oW2wvUqiRXiQ69gLWSLpgB5/6sU+r6BlQR0MBILadqTQ=="
+  "resolved" "https://registry.npmjs.org/lodash.get/-/lodash.get-4.4.2.tgz"
+  "version" "4.4.2"
+
 "lodash.isplainobject@^4.0.6":
   "integrity" "sha512-oSXzaWypCMHkPC3NvBEaPHf0KsA5mvPrOPgQWDsbg8n7orZ290M0BmC/jgRZ4vcJ6DTAhjrsSYgdsW/F+MFOBA=="
   "resolved" "https://registry.npmjs.org/lodash.isplainobject/-/lodash.isplainobject-4.0.6.tgz"
   "version" "4.0.6"
+
+"lodash.merge@^4.6.2":
+  "integrity" "sha512-0KpjqXRVvrYyCsX1swR/XTK0va6VQkQM6MNo7PqW77ByjAhoARA8EfrP1N4+KlKj8YS0ZUCtRT/YUuhyYDujIQ=="
+  "resolved" "https://registry.npmjs.org/lodash.merge/-/lodash.merge-4.6.2.tgz"
+  "version" "4.6.2"
 
 "lodash.snakecase@^4.1.1":
   "integrity" "sha512-QZ1d4xoBHYUeuouhEq3lk3Uq7ldgyFXGBhg04+oRLnIz8o9T65Eh+8YdroUwn846zchkA9yDsDl5CVVaV2nqYw=="
@@ -1429,7 +1451,16 @@
     "@aws-sdk/credential-providers" "^3.186.0"
     "saslprep" "^1.0.3"
 
-"mongoose@^6.8.1":
+"mongoose-unique-validator@^3.1.0":
+  "integrity" "sha512-UsBBlFapip8gc8x1h+nLWnkOy+GTy9Z+zmTyZ35icLV3EoLIVz180vJzepfMM9yBy2AJh+maeuoM8CWtqejGUg=="
+  "resolved" "https://registry.npmjs.org/mongoose-unique-validator/-/mongoose-unique-validator-3.1.0.tgz"
+  "version" "3.1.0"
+  dependencies:
+    "lodash.foreach" "^4.1.0"
+    "lodash.get" "^4.0.2"
+    "lodash.merge" "^4.6.2"
+
+"mongoose@^6.0.0", "mongoose@^6.3.0", "mongoose@^6.8.1":
   "integrity" "sha512-5tu6+trwjk5TIH6b6iYgAwmzZ0RNOxFoqXQb9h21Oi45DeM1rWM/niHxJ4ROqBISDfQMwRvLSABHTsyn3AzoFQ=="
   "resolved" "https://registry.npmjs.org/mongoose/-/mongoose-6.9.0.tgz"
   "version" "6.9.0"
@@ -1702,13 +1733,15 @@
     "readable-stream" "^3.1.1"
 
 "tc-dbcomm@github:RnDAO/tc-dbComm":
-  "resolved" "git+ssh://git@github.com/RnDAO/tc-dbComm.git#b336789e568c5926c706bb30b566d6ec54b44ea3"
+  "resolved" "git+ssh://git@github.com/RnDAO/tc-dbComm.git#cecb4ac667fe4c689944c4c4466d667bfeae4118"
   "version" "1.0.0"
   dependencies:
+    "@types/mongoose-unique-validator" "^1.0.6"
     "discord.js" "^14.7.1"
     "joi" "^17.7.0"
     "moment" "^2.29.4"
     "mongoose" "^6.8.1"
+    "mongoose-unique-validator" "^3.1.0"
     "validator" "^13.7.0"
 
 "to-regex-range@^5.0.1":
