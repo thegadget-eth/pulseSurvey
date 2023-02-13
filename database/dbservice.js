@@ -69,9 +69,9 @@ const messageToRawinfo = async (m) => {
       m.content = m.content.replace(new RegExp(s, "g"), roleName);
       return roleName;
     });
-  const reply = { replied_User: "" };
+  let reply = "";
   if (m.type === "REPLY") {
-    reply.replied_User = `${m.mentions?.repliedUser?.username}#${m.mentions?.repliedUser?.discriminator}`;
+    reply = `${m.mentions?.repliedUser?.username}#${m.mentions?.repliedUser?.discriminator}`;
   }
   m.content = m.content.replace(new RegExp(",", "g"), " ");
   const data = {
@@ -82,7 +82,7 @@ const messageToRawinfo = async (m) => {
     user_mentions: users_mentions ? users_mentions.join(",") : users_mentions,
     role_mentions: roles_mentions ? roles_mentions.join(",") : roles_mentions,
     reactions: reactions.join("&"),
-    ...reply,
+    replied_user: reply,
     channelId: m.channelId,
     messageId: m.id,
     channel: m.channel.name,
