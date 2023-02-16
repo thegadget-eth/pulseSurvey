@@ -29,15 +29,16 @@ const getInteractions = async (id, value) => {
 };
 
 // change format of date to YYYYMMDD
-const convertDateToYYYYMMDD = (d) => {
+const convertDateToYYYYMMDD = (date) => {
   // convert 2 digit integer
-  d = new Date(d);
-  const pad = (s) => {
-    return s < 10 ? "0" + s : s % 100;
-  };
-  return (
-    "" + d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate())
-  );
+  date = new Date(date);
+  const year = date.getFullYear().toString().padStart(4, "0");
+  const month = (date.getMonth() + 1).toString().padStart(2, "0");
+  const day = date.getDate().toString().padStart(2, "0");
+  const hours = date.getHours().toString().padStart(2, "0");
+  const minutes = date.getMinutes().toString().padStart(2, "0");
+  const seconds = date.getSeconds().toString().padStart(2, "0");
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 };
 
 // convert message to rawinfo depends on schema
@@ -79,8 +80,8 @@ const messageToRawinfo = async (m) => {
     datetime: convertDateToYYYYMMDD(new Date(m.createdTimestamp)),
     author: `${m.author.username}#${m.author.discriminator}`,
     content: m.content,
-    user_mentions: users_mentions ? users_mentions.join(",") : users_mentions,
-    role_mentions: roles_mentions ? roles_mentions.join(",") : roles_mentions,
+    user_mentions: users_mentions ? users_mentions.join(",") : "",
+    role_mentions: roles_mentions ? roles_mentions.join(",") : "",
     reactions: reactions.join("&"),
     replied_user: reply,
     channelId: m.channelId,
