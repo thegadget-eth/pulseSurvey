@@ -25,7 +25,7 @@ const getInteractions = async (id, value) => {
   users = users.forEach((user) => {
     usernames.push(`${user.username}#${user.discriminator}`);
   });
-  return [usernames.toString(), id];
+  return [usernames.toString(), id].join(",");
 };
 
 // change format of date to YYYYMMDD
@@ -82,7 +82,7 @@ const messageToRawinfo = async (m) => {
     content: m.content,
     user_mentions: users_mentions ? users_mentions.join(",") : "",
     role_mentions: roles_mentions ? roles_mentions.join(",") : "",
-    reactions: reactions.join("&"),
+    reactions: reactions,
     replied_user: reply,
     channelId: m.channelId,
     messageId: m.id,
