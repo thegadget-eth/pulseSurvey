@@ -109,9 +109,9 @@ const insertMessages = async (guildID, messages) => {
   return countNewMessages;
 };
 
-// fetch different guild settings from RnDAO server
-const fetchSettings = async () => {
-  const settings = await guildService.fetchGuild();
+// fetch one or different guild settings from RnDAO server
+const fetchSettings = async (guildId) => {
+  const settings = await guildService.fetchGuild(guildId);
   return settings;
 };
 
