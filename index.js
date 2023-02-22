@@ -83,6 +83,11 @@ const getGuildFromCmd = () => {
   return guild;
 };
 
+/**
+ * extract messages from guild setting
+ * input: npm start -- --guild=853132782821703751       -> extract messages from only one guild(853132782821703751)
+ *        npm start                                     -> extract messages from all guilds
+ */
 const app = async () => {
   const customGuildId = getGuildFromCmd();
 
