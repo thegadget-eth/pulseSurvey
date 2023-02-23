@@ -94,6 +94,12 @@ const fetchMessages = async (
   }
 };
 
+/**
+ * @dev send dm to user
+ * @param client discord client
+ * @param userId id of target user
+ * @param message message to be sent
+ */
 const sendDMtoUser = async (client, userId, message) => {
   try {
     const targetUser = await client.users.fetch(userId);
