@@ -7,7 +7,7 @@ const {
   connectDB,
   updateGuild,
 } = require("./database/dbservice.js");
-const { fetchMessages } = require("./action/export.js");
+const { fetchMessages, sendDMtoUser } = require("./action/export.js");
 
 const { Client, Intents } = require("discord.js");
 require("dotenv").config();

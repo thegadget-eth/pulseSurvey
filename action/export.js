@@ -94,6 +94,25 @@ const fetchMessages = async (
   }
 };
 
+const sendDMtoUser = async (client, userId, message) => {
+  try {
+    const targetUser = await client.users.fetch(userId);
+    console.log(targetUser);
+    targetUser
+      .send(message)
+      .then(() => {
+        console.log(
+          `Message Sent to ${targetUser.username}#${targetUser.discriminator}`
+        );
+      })
+      .catch((e) => {
+        throw e;
+      });
+  } catch (e) {
+    console.log("Can't DM to user", e);
+  }
+};
 module.exports = {
   fetchMessages,
+  sendDMtoUser,
 };
