@@ -119,10 +119,10 @@ const fetchSettings = async (guildId) => {
   return settings;
 };
 
-const getRange = async (guildID) => {
+const getRange = async (guildID, channelID) => {
   const database = getDB();
   const connection = databaseService.connectionFactory(guildID, database);
-  const range = await rawInfoService.getRangeId(connection);
+  const range = await rawInfoService.getRangeId(connection, channelID);
   await connection.close();
   return range;
 };

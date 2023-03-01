@@ -1,3 +1,5 @@
+const { getRange } = require("../database/dbservice.js");
+
 /**
  * @dev fetch messages by filter
  * @param guild discord guild
@@ -6,15 +8,13 @@
  * @param limit limit fetching messages
  * @param since filtering param by date
  * @param channels filtering param by channel
- * @param before oldest message id
- * @param after latest message id
  * @return messages
  */
 const fetchMessages = async (
   guild,
   channel,
   type,
-  { since = null, channels = null, before = null, after = null } = {}
+  { since = null, channels = null } = {}
 ) => {
   let sum_messages = []; // for collecting messages
   if (type === "channels") {
@@ -30,8 +30,6 @@ const fetchMessages = async (
           //fetch all messages from the channel
           const messages = await fetchMessages(guild, channel, "date", {
             since: since,
-            before: before,
-            after: after,
           });
           sum_messages.push(...messages);
           const threads = channel.threads.cache;
@@ -40,19 +38,24 @@ const fetchMessages = async (
             // fetch messages from thread
             const messages = await fetchMessages(guild, thread, "date", {
               since: since,
-              before: before,
-              after: after,
             });
             sum_messages.push(...messages);
           });
           await Promise.all(threadPromises);
-        } catch (e) {}
+        } catch (e) {
+          console.log(e);
+        }
       }
     });
     await Promise.all(promises);
     return sum_messages;
   }
-
+  const channelId = channel.id;
+  const storedIdRange = await getRange(guild, channelId);
+  const [before, after] = [
+    storedIdRange[0]?.messageId,
+    storedIdRange[1]?.messageId,
+  ];
   // extract recent messages from one channel
   let last_id = after;
   while (true && after != null) {

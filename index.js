@@ -39,13 +39,10 @@ const fetch = async (setting) => {
   try {
     const channels = selectedChannels.map((item) => item.channelId);
     const guild = await client.guilds.fetch(guildId);
-    const storedIdRange = await getRange(guild);
     const date = new Date(period);
     const timeStamp = date.getTime();
     const messages = await fetchMessages(guild, null, "channels", {
       channels: channels,
-      after: storedIdRange[1]?.messageId,
-      before: storedIdRange[0]?.messageId,
       since: timeStamp,
     });
     return messages;
@@ -99,7 +96,6 @@ const app = async () => {
   await checkBotStatus(settings);
   promises = settings.map(async (setting) => {
     const { guildId, name } = setting;
-
     await toggleExtraction(setting, true);
     // fetch missed messages from discord
     const messages = await fetch(setting);
