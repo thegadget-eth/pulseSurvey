@@ -109,9 +109,13 @@ const insertMessages = async (guildID, messages) => {
   return countNewMessages;
 };
 
-// fetch different guild settings from RnDAO server
-const fetchSettings = async () => {
-  const settings = await guildService.fetchGuild();
+/**
+ * fetch one or different guild settings from RnDAO server
+ * @param guildId (Snowflake | null) if it is null, fetch all guild settings, otherwise fetch one guild setting by guildId
+ * @return guild setting list
+ */
+const fetchSettings = async (guildId) => {
+  const settings = await guildService.fetchGuild(guildId);
   return settings;
 };
 

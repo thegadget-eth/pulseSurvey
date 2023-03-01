@@ -7,7 +7,7 @@ const {
   connectDB,
   updateGuild,
 } = require("./database/dbservice.js");
-const { fetchMessages } = require("./action/export.js");
+const { fetchMessages, sendDMtoUser } = require("./action/export.js");
 
 const { Client, Intents } = require("discord.js");
 require("dotenv").config();
@@ -67,18 +67,35 @@ const checkBotStatus = async (settings) => {
   return await Promise.all(promises);
 };
 
+// toggle bot status when extracting and after that
 const toggleExtraction = async (setting, status) => {
   const { guildId } = setting;
   setting.isInProgress = status;
   await updateGuild(guildId, setting);
 };
 
+// get guildid from command
+const getGuildFromCmd = () => {
+  const args = process.argv.slice(2);
+
+  const portArg = args.find((arg) => arg.startsWith("--guild="));
+  const guild = portArg ? portArg.split("=")[1] : null;
+  return guild;
+};
+
+/**
+ * extract messages from guild setting
+ * input: npm start -- --guild=853132782821703751       -> extract messages from only one guild(853132782821703751)
+ *        npm start                                     -> extract messages from all guilds
+ */
 const app = async () => {
+  const customGuildId = getGuildFromCmd();
+
   // fetch all guild settings
   await discordLogin();
   await connectDB();
   // only fetch connected guilds
-  const settings = await fetchSettings();
+  const settings = await fetchSettings(customGuildId);
   await checkBotStatus(settings);
   promises = settings.map(async (setting) => {
     const { guildId, name } = setting;
