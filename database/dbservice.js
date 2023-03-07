@@ -1,4 +1,4 @@
-const { databaseService, rawInfoService, guildService } = require("tc-dbcomm");
+const { databaseService, rawInfoService, guildService, channelsService } = require("tc-dbcomm");
 const mongoose = require("mongoose");
 // get database address
 const getDB = () => {
@@ -127,6 +127,14 @@ const getRange = async (guildID, channelID) => {
   return range;
 };
 
+const updateChannel = async (guildId, channelId, channel) => {
+  const database = getDB();
+  const connection = databaseService.connectionFactory(guildId, database);
+  const data = await channelsService.updateChannel(connection, channelId, channel);
+  await connection.close();
+  return data;
+}
+
 const updateGuild = guildService.updateGuildByGuildId;
 module.exports = {
   insertMessages,
@@ -134,4 +142,5 @@ module.exports = {
   getRange,
   connectDB,
   updateGuild,
+  updateChannel
 };

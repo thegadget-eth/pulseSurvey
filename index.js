@@ -2,12 +2,11 @@ const fs = require("node:fs");
 const path = require("node:path");
 const {
   fetchSettings,
-  getRange,
   insertMessages,
   connectDB,
   updateGuild,
 } = require("./database/dbservice.js");
-const { fetchMessages, sendDMtoUser } = require("./action/export.js");
+const { fetchMessages, updateChannelInfo } = require("./action/export.js");
 
 const { Client, Intents } = require("discord.js");
 require("dotenv").config();
@@ -96,6 +95,7 @@ const app = async () => {
   await checkBotStatus(settings);
   promises = settings.map(async (setting) => {
     const { guildId, name } = setting;
+    await updateChannelInfo(client, guildId);
     await toggleExtraction(setting, true);
     // fetch missed messages from discord
     const messages = await fetch(setting);
