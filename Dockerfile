@@ -1,17 +1,21 @@
-FROM node:16
+kFROM node:17.9.1
 
 RUN apt-get update && apt-get -y upgrade
+RUN apt -y install cron
 
-RUN mkdir -p "/var/www/ratior"
-WORKDIR "/var/www/ratior"
+RUN mkdir -p "/var/www/botComm"
+RUN mkdir "/var/www/cron-log"
+
+WORKDIR "/var/www/botComm"
 
 COPY package*.json ./
+
 RUN npm ci --only=production
 
-ENV CLIENT_ID=XXX
-ENV GUILD_ID=XXX
-ENV TOKEN=XXX
-EXPOSE 32767
-
 COPY . .
-CMD ["bash", "-c", "npm run start"]
+
+RUN find . -type f -iname "*.sh" -exec chmod +x {} \;
+
+ENV TIMECRON="* * * * *"
+
+CMD ["./start.sh"]
