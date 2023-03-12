@@ -1,4 +1,4 @@
-kFROM node:17.9.1
+FROM node:17.9.1
 
 RUN apt-get update && apt-get -y upgrade
 RUN apt -y install cron
