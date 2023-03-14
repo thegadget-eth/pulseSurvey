@@ -58,7 +58,7 @@ const messageToRawinfo = async (m) => {
     users_mentions = users_mentions.map((s) => {
       const id = s.replace(/[<>@]/g, "");
       const user = m.mentions.users.get(id);
-      const username = `${user.username}#${user.discriminator}`;
+      const username = user ? `${user.username}#${user.discriminator}` : 'Deleted-user';
       m.content = m.content.replace(new RegExp(s, "g"), username);
       return username;
     });
