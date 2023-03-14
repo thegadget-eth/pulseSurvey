@@ -19,16 +19,11 @@ const discordLogin = async () => {
   const eventFiles = fs
     .readdirSync(eventsPath)
     .filter((file) => file.endsWith(".js"));
-
-  for (const file of eventFiles) {
-    const filePath = path.join(eventsPath, file);
-    const event = require(filePath);
-    if (event.once) {
-      client.once(event.name, (...args) => event.execute(...args));
-    } else {
-      client.on(event.name, (...args) => event.execute(...args));
-    }
-  }
+  client.once("ready", () => {
+		console.log(`Ready! Logged in as ${client.user.tag}`);
+    extract();
+  })
+  
   await client.login(process.env.TOKEN);
 };
 
@@ -79,18 +74,11 @@ const getGuildFromCmd = () => {
   return guild;
 };
 
-/**
- * extract messages from guild setting
- * input: npm start -- --guild=853132782821703751       -> extract messages from only one guild(853132782821703751)
- *        npm start                                     -> extract messages from all guilds
- */
-const app = async () => {
-  const customGuildId = getGuildFromCmd();
-
-  // fetch all guild settings
-  await discordLogin();
-  await connectDB();
+const extract = async () => {
   // only fetch connected guilds
+  const customGuildId = getGuildFromCmd();
+  // const customGuildId = "596752664906432522";
+  
   const settings = await fetchSettings(customGuildId);
   await checkBotStatus(settings);
   promises = settings.map(async (setting) => {
@@ -113,6 +101,18 @@ const app = async () => {
   });
   await Promise.all(promises);
   process.exit(0);
+}
+
+/**
+ * extract messages from guild setting
+ * input: npm start -- --guild=853132782821703751       -> extract messages from only one guild(853132782821703751)
+ *        npm start                                     -> extract messages from all guilds
+ */
+const app = async () => {
+  
+  // fetch all guild settings
+  await connectDB();
+  await discordLogin();
 };
 
 app();
