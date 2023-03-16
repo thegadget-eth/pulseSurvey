@@ -5,6 +5,7 @@ const {
   insertMessages,
   connectDB,
   updateGuild,
+  getRange
 } = require("./database/dbservice.js");
 const { fetchMessages, updateChannelInfo } = require("./action/export.js");
 
@@ -35,9 +36,16 @@ const fetch = async (setting) => {
     const guild = await client.guilds.fetch(guildId);
     const date = new Date(period);
     const timeStamp = date.getTime();
+    const storedIdRange = await getRange(guild.id);
+    const [before, after] = [
+      storedIdRange[0]?.messageId,
+      storedIdRange[1]?.messageId,
+    ];
     const messages = await fetchMessages(guild, null, "channels", {
       channels: channels,
       since: timeStamp,
+      before,
+      after
     });
     return messages;
   } catch (e) {

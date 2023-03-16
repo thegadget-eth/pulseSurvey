@@ -1,4 +1,8 @@
-const { getRange, updateChannel, connectDB } = require("../database/dbservice.js");
+const {
+  getRange,
+  updateChannel,
+  connectDB,
+} = require("../database/dbservice.js");
 
 /**
  * @dev fetch messages by filter
@@ -14,7 +18,7 @@ const fetchMessages = async (
   guild,
   channel,
   type,
-  { since = null, channels = null } = {}
+  { since = null, channels = null, before, after } = {}
 ) => {
   let sum_messages = []; // for collecting messages
   if (type === "channels") {
@@ -30,6 +34,8 @@ const fetchMessages = async (
           //fetch all messages from the channel
           const messages = await fetchMessages(guild, channel, "date", {
             since: since,
+            before: before,
+            after: after,
           });
           sum_messages.push(...messages);
           const threads = channel.threads.cache;
@@ -38,6 +44,8 @@ const fetchMessages = async (
             // fetch messages from thread
             const messages = await fetchMessages(guild, thread, "date", {
               since: since,
+              before: before,
+              after: after,
             });
             sum_messages.push(...messages);
           });
@@ -50,12 +58,6 @@ const fetchMessages = async (
     await Promise.all(promises);
     return sum_messages;
   }
-  const channelId = channel.id;
-  const storedIdRange = await getRange(guild, channelId);
-  const [before, after] = [
-    storedIdRange[0]?.messageId,
-    storedIdRange[1]?.messageId,
-  ];
   // extract recent messages from one channel
   let last_id = after;
   while (true && after != null) {
@@ -122,7 +124,6 @@ const sendDMtoUser = async (client, userId, message) => {
   }
 };
 
-
 /**
  * @dev send dm to user
  * @param client discord client
@@ -132,10 +133,12 @@ const updateChannelInfo = async (client, guildId) => {
   try {
     const guild = client.guilds.cache.get(guildId);
     if (guild) {
-      const channels = guild.channels.cache.filter((channel) => channel.type === "GUILD_TEXT");
+      const channels = guild.channels.cache.filter(
+        (channel) => channel.type === "GUILD_TEXT"
+      );
 
       channels.map(async (channel) => {
-        const {id, name} = channel;
+        const { id, name } = channel;
         await updateChannel(guildId, id, name);
       });
     }
@@ -147,5 +150,5 @@ const updateChannelInfo = async (client, guildId) => {
 module.exports = {
   fetchMessages,
   sendDMtoUser,
-  updateChannelInfo
+  updateChannelInfo,
 };
