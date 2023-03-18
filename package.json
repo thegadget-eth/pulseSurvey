@@ -16,7 +16,7 @@
     "discord.js": "^13.8.0",
     "dotenv": "^16.0.1",
     "moment": "^2.29.4",
-    "tc-dbcomm": "github:RnDAO/tc-dbComm"
+    "tc_dbcomm": "^1.0.0"
   },
   "devDependencies": {
     "nodemon": "^2.0.20"
