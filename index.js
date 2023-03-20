@@ -1,5 +1,9 @@
 const fs = require("node:fs");
 const path = require("node:path");
+
+const guilds = require('./temp');
+
+
 const {
   fetchSettings,
   insertMessages,
@@ -10,6 +14,7 @@ const {
 const { fetchMessages, updateChannelInfo } = require("./action/export.js");
 
 const { Client, Intents } = require("discord.js");
+const { createConnection } = require("node:net");
 require("dotenv").config();
 const intents = new Intents(32767);
 const client = new Client({ intents });
@@ -37,10 +42,12 @@ const fetch = async (setting) => {
     const date = new Date(period);
     const timeStamp = date.getTime();
     const storedIdRange = await getRange(guild.id);
+    console.log(storedIdRange)
     const [before, after] = [
       storedIdRange[0]?.messageId,
       storedIdRange[1]?.messageId,
     ];
+    console.log(before, after)
     const messages = await fetchMessages(guild, null, "channels", {
       channels: channels,
       since: timeStamp,
@@ -49,6 +56,7 @@ const fetch = async (setting) => {
     });
     return messages;
   } catch (e) {
+    console.log(e)
     return [];
   }
 };
@@ -88,16 +96,19 @@ const extract = async () => {
   // const customGuildId = "596752664906432522";
   
   const settings = await fetchSettings(customGuildId);
-  await checkBotStatus(settings);
-  promises = settings.map(async (setting) => {
+  // const settings = guilds;
+  // await checkBotStatus(settings);
+  for(const setting of settings) {
     const { guildId, name } = setting;
-    await updateChannelInfo(client, guildId);
-    await toggleExtraction(setting, true);
+    // await updateChannelInfo(client, guildId);
+    // await toggleExtraction(setting, true);
     // fetch missed messages from discord
+    console.log("HERE");
     const messages = await fetch(setting);
+    console.log(messages.length);
     // insert messages to the database
     const numberOfNewMessage = await insertMessages(guildId, messages);
-    await toggleExtraction(setting, false);
+    // await toggleExtraction(setting, false);
     if (numberOfNewMessage === 0) {
       console.log("No new messages are fetched from ", name);
     } else {
@@ -106,7 +117,7 @@ const extract = async () => {
         name
       );
     }
-  });
+  }
   await Promise.all(promises);
   process.exit(0);
 }

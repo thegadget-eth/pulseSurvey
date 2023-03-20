@@ -1,4 +1,5 @@
 const { databaseService, rawInfoService, guildService, channelsService } = require("tc-dbcomm");
+
 const mongoose = require("mongoose");
 // get database address
 const getDB = () => {
@@ -92,6 +93,21 @@ const messageToRawinfo = async (m) => {
   };
   return data;
 };
+
+const createConnection = (guildId) => {
+  try {
+    const database = getDB();
+    const connection = databaseService.connectionFactory(guildId, database);
+    return connection;
+  } catch(e) {
+    console.log(e);
+    return null;
+  }
+}
+
+const getConnection = (guildId) => {
+
+}
 
 // insert message data into the database and return number of messages newly added
 const insertMessages = async (guildID, messages) => {

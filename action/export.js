@@ -32,11 +32,13 @@ const fetchMessages = async (
       ) {
         try {
           //fetch all messages from the channel
+          console.log(channel.name);
           const messages = await fetchMessages(guild, channel, "date", {
             since: since,
-            before: before,
-            after: after,
+            before: after,
+            after: before,
           });
+
           sum_messages.push(...messages);
           const threads = channel.threads.cache;
           // iterate all threads
@@ -69,14 +71,22 @@ const fetchMessages = async (
     try {
       const messagesMap = await channel.messages.fetch(options);
       messages = Array.from(messagesMap, ([id, value]) => ({ id, value }));
-    } catch (e) {}
+    } catch (e) {
+      console.log(e);
+    }
     if (messages.length === 0) break;
     sum_messages.push(...messages);
+    for(const message of messages) {
+      console.log(after, message.id)
+    }
+    console.log("---->", channel.name, options, messages.length, sum_messages.length);
+    
     last_id = messages[0].id;
   }
   last_id = before;
   // extract old messages from one channel
   while (true) {
+
     // split for number of messages to fetch with limit
     const options = { limit: 100 };
     if (last_id) {
@@ -86,12 +96,15 @@ const fetchMessages = async (
     try {
       const messagesMap = await channel.messages.fetch(options);
       messages = Array.from(messagesMap, ([id, value]) => ({ id, value }));
-    } catch (e) {}
+    } catch (e) {
+      console.log(e);
+    }
     if (messages.length === 0) return sum_messages;
+    console.log("---->", channel.name, options, messages.length, sum_messages.length);
     for (let i = 0; i < messages.length; i++) {
       if (messages[i].value.createdTimestamp < since) {
         sum_messages.push(...messages.slice(0, i));
-        return sum_messages;
+        return sum_messages; // will return here
       }
     }
     sum_messages.push(...messages);
