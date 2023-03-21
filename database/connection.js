@@ -1,4 +1,5 @@
-const { databaseService } = require("tc-dbcomm");const mongoose = require("mongoose");
+const { databaseService } = require("tc-dbcomm");
+const mongoose = require("mongoose");
 require("dotenv").config();
 
 const db_address = process.env.DB_ADDRESS;
