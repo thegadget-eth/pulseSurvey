@@ -2,7 +2,6 @@ const fs = require("node:fs");
 const path = require("node:path");
 const {
   fetchSettings,
-  insertMessages,
   updateGuild,
   getRange,
 } = require("./database/dbservice.js");
@@ -30,8 +29,8 @@ const discordLogin = async () => {
   await client.login(process.env.TOKEN);
 };
 
-// get required messages from discord
-const fetch = async (setting) => {
+// get required messages from discord and insert into database
+const fetchAndInsert = async (setting) => {
   const { guildId, selectedChannels, period } = setting;
   try {
     const channels = selectedChannels.map((item) => item.channelId);
@@ -106,23 +105,12 @@ const extract = async () => {
     // fetch missed messages from discord
     console.log("fetching messages from discord server ", name);
 
-    const messages = await fetch(setting);
+    await fetchAndInsert(setting);
     // insert messages to the database
-
-    console.log("inserting ", messages.length, "messages");
-    const numberOfNewMessage = await insertMessages(guildId, messages);
 
     console.log("make isProgress false in this server");
     await toggleExtraction(setting, false);
 
-    if (numberOfNewMessage === 0) {
-      console.log("No new messages are fetched from ", name);
-    } else {
-      console.log(
-        `Successfully stored ${numberOfNewMessage} messages from`,
-        name
-      );
-    }
     removeConnection(guildId);
   }
   process.exit(0);
