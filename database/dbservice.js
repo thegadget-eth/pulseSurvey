@@ -1,23 +1,5 @@
-const { databaseService, rawInfoService, guildService, channelsService } = require("tc-dbcomm");
-const mongoose = require("mongoose");
-// get database address
-const getDB = () => {
-  const db_address = process.env.DB_ADDRESS;
-  const db_user = process.env.DB_USER;
-  const db_password = process.env.DB_PASSWORD;
-  const database = `mongodb://${db_user}:${db_password}@${db_address}`;
-  return database;
-};
-
-const connectDB = async () => {
-  const database = getDB() + "/" + process.env.RnDAO;
-  await mongoose.set("strictQuery", false);
-  // Connect to MongoDB
-  await mongoose.connect(database).then(() => {
-    console.log("Connected to MongoDB!");
-  });
-};
-
+const { rawInfoService, guildService, channelsService } = require("tc-dbcomm");
+const { createConnection } = require("./connection");
 // get users with id and value
 const getInteractions = async (id, value) => {
   let usernames = [];
@@ -58,7 +40,9 @@ const messageToRawinfo = async (m) => {
     users_mentions = users_mentions.map((s) => {
       const id = s.replace(/[<>@]/g, "");
       const user = m.mentions.users.get(id);
-      const username = user ? `${user.username}#${user.discriminator}` : 'Deleted-user';
+      const username = user
+        ? `${user.username}#${user.discriminator}`
+        : "Deleted-user";
       m.content = m.content.replace(new RegExp(s, "g"), username);
       return username;
     });
@@ -88,15 +72,14 @@ const messageToRawinfo = async (m) => {
     channelId: isThread ? m.channel.parentId : m.channel.id,
     messageId: m.id,
     threadId: isThread ? m.channel.id : "None",
-    thread: isThread ? m.channel.name: "None",
+    thread: isThread ? m.channel.name : "None",
   };
   return data;
 };
 
 // insert message data into the database and return number of messages newly added
-const insertMessages = async (guildID, messages) => {
-  const database = getDB();
-  const connection = databaseService.connectionFactory(guildID, database);
+const insertMessages = async (guildId, messages) => {
+  const connection = createConnection(guildId);
   let countNewMessages = 0;
   const promises = messages.map(async ({ id, value: m }) => {
     const data = await messageToRawinfo(m);
@@ -106,7 +89,6 @@ const insertMessages = async (guildID, messages) => {
     }
   });
   await Promise.all(promises);
-  await connection.close();
   return countNewMessages;
 };
 
@@ -120,28 +102,29 @@ const fetchSettings = async (guildId) => {
   return settings;
 };
 
-const getRange = async (guildID) => {
-  const database = getDB();
-  const connection = databaseService.connectionFactory(guildID, database);
+// get latest and oldest message in the current guild
+const getRange = async (guildId) => {
+  const connection = createConnection(guildId);
   const range = await rawInfoService.getRangeId(connection);
-  await connection.close();
   return range;
 };
 
+// sync channle id anc channel name
 const updateChannel = async (guildId, channelId, channel) => {
-  const database = getDB();
-  const connection = databaseService.connectionFactory(guildId, database);
-  const data = await channelsService.updateChannel(connection, channelId, channel);
-  await connection.close();
+  const connection = createConnection(guildId);
+  const data = await channelsService.updateChannel(
+    connection,
+    channelId,
+    channel
+  );
   return data;
-}
+};
 
 const updateGuild = guildService.updateGuildByGuildId;
 module.exports = {
   insertMessages,
   fetchSettings,
   getRange,
-  connectDB,
   updateGuild,
-  updateChannel
+  updateChannel,
 };

@@ -1,8 +1,4 @@
-const {
-  getRange,
-  updateChannel,
-  connectDB,
-} = require("../database/dbservice.js");
+const { updateChannel } = require("../database/dbservice.js");
 
 /**
  * @dev fetch messages by filter
@@ -37,6 +33,7 @@ const fetchMessages = async (
             before: before,
             after: after,
           });
+
           sum_messages.push(...messages);
           const threads = channel.threads.cache;
           // iterate all threads
@@ -69,9 +66,12 @@ const fetchMessages = async (
     try {
       const messagesMap = await channel.messages.fetch(options);
       messages = Array.from(messagesMap, ([id, value]) => ({ id, value }));
-    } catch (e) {}
+    } catch (e) {
+      // console.log(e);
+    }
     if (messages.length === 0) break;
     sum_messages.push(...messages);
+
     last_id = messages[0].id;
   }
   last_id = before;
@@ -86,12 +86,14 @@ const fetchMessages = async (
     try {
       const messagesMap = await channel.messages.fetch(options);
       messages = Array.from(messagesMap, ([id, value]) => ({ id, value }));
-    } catch (e) {}
+    } catch (e) {
+      // console.log(e);
+    }
     if (messages.length === 0) return sum_messages;
     for (let i = 0; i < messages.length; i++) {
       if (messages[i].value.createdTimestamp < since) {
         sum_messages.push(...messages.slice(0, i));
-        return sum_messages;
+        return sum_messages; // will return here
       }
     }
     sum_messages.push(...messages);
@@ -125,7 +127,7 @@ const sendDMtoUser = async (client, userId, message) => {
 };
 
 /**
- * @dev send dm to user
+ * @dev sync channel id and channel name
  * @param client discord client
  * @param guildId id of guild
  */
@@ -136,7 +138,6 @@ const updateChannelInfo = async (client, guildId) => {
       const channels = guild.channels.cache.filter(
         (channel) => channel.type === "GUILD_TEXT"
       );
-
       channels.map(async (channel) => {
         const { id, name } = channel;
         await updateChannel(guildId, id, name);

@@ -3,10 +3,11 @@ const path = require("node:path");
 const {
   fetchSettings,
   insertMessages,
-  connectDB,
   updateGuild,
-  getRange
+  getRange,
 } = require("./database/dbservice.js");
+
+const { connectDB, removeConnection } = require("./database/connection");
 const { fetchMessages, updateChannelInfo } = require("./action/export.js");
 
 const { Client, Intents } = require("discord.js");
@@ -21,10 +22,11 @@ const discordLogin = async () => {
     .readdirSync(eventsPath)
     .filter((file) => file.endsWith(".js"));
   client.once("ready", () => {
-		console.log(`Ready! Logged in as ${client.user.tag}`);
+    console.log(`Ready! Logged in as ${client.user.tag}`);
+    // once discord bot login then extract
     extract();
-  })
-  
+  });
+
   await client.login(process.env.TOKEN);
 };
 
@@ -45,10 +47,11 @@ const fetch = async (setting) => {
       channels: channels,
       since: timeStamp,
       before,
-      after
+      after,
     });
     return messages;
   } catch (e) {
+    console.log(e);
     return [];
   }
 };
@@ -82,22 +85,36 @@ const getGuildFromCmd = () => {
   return guild;
 };
 
+// extract messages from connected servers
 const extract = async () => {
   // only fetch connected guilds
   const customGuildId = getGuildFromCmd();
-  // const customGuildId = "596752664906432522";
-  
   const settings = await fetchSettings(customGuildId);
   await checkBotStatus(settings);
-  promises = settings.map(async (setting) => {
+  console.log(settings.length, "connected discord servers");
+
+  for (const setting of settings) {
     const { guildId, name } = setting;
+    console.log("start extraction from ", name);
+
+    console.log("sync channel id and channel name");
     await updateChannelInfo(client, guildId);
+
+    console.log("make isProgress true in this server");
     await toggleExtraction(setting, true);
+
     // fetch missed messages from discord
+    console.log("fetching messages from discord server ", name);
+
     const messages = await fetch(setting);
     // insert messages to the database
+
+    console.log("inserting ", messages.length, "messages");
     const numberOfNewMessage = await insertMessages(guildId, messages);
+
+    console.log("make isProgress false in this server");
     await toggleExtraction(setting, false);
+
     if (numberOfNewMessage === 0) {
       console.log("No new messages are fetched from ", name);
     } else {
@@ -106,10 +123,10 @@ const extract = async () => {
         name
       );
     }
-  });
-  await Promise.all(promises);
+    removeConnection(guildId);
+  }
   process.exit(0);
-}
+};
 
 /**
  * extract messages from guild setting
@@ -117,8 +134,6 @@ const extract = async () => {
  *        npm start                                     -> extract messages from all guilds
  */
 const app = async () => {
-  
-  // fetch all guild settings
   await connectDB();
   await discordLogin();
 };
