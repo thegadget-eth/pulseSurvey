@@ -1,8 +1,4 @@
-const {
-  getRange,
-  updateChannel,
-  connectDB,
-} = require("../database/dbservice.js");
+const { updateChannel } = require("../database/dbservice.js");
 
 /**
  * @dev fetch messages by filter
@@ -32,11 +28,10 @@ const fetchMessages = async (
       ) {
         try {
           //fetch all messages from the channel
-          console.log(channel.name);
           const messages = await fetchMessages(guild, channel, "date", {
             since: since,
-            before: after,
-            after: before,
+            before: before,
+            after: after,
           });
 
           sum_messages.push(...messages);
@@ -72,21 +67,16 @@ const fetchMessages = async (
       const messagesMap = await channel.messages.fetch(options);
       messages = Array.from(messagesMap, ([id, value]) => ({ id, value }));
     } catch (e) {
-      console.log(e);
+      // console.log(e);
     }
     if (messages.length === 0) break;
     sum_messages.push(...messages);
-    for(const message of messages) {
-      console.log(after, message.id)
-    }
-    console.log("---->", channel.name, options, messages.length, sum_messages.length);
-    
+
     last_id = messages[0].id;
   }
   last_id = before;
   // extract old messages from one channel
   while (true) {
-
     // split for number of messages to fetch with limit
     const options = { limit: 100 };
     if (last_id) {
@@ -97,10 +87,9 @@ const fetchMessages = async (
       const messagesMap = await channel.messages.fetch(options);
       messages = Array.from(messagesMap, ([id, value]) => ({ id, value }));
     } catch (e) {
-      console.log(e);
+      // console.log(e);
     }
     if (messages.length === 0) return sum_messages;
-    console.log("---->", channel.name, options, messages.length, sum_messages.length);
     for (let i = 0; i < messages.length; i++) {
       if (messages[i].value.createdTimestamp < since) {
         sum_messages.push(...messages.slice(0, i));
@@ -138,7 +127,7 @@ const sendDMtoUser = async (client, userId, message) => {
 };
 
 /**
- * @dev send dm to user
+ * @dev sync channel id and channel name
  * @param client discord client
  * @param guildId id of guild
  */
@@ -149,7 +138,6 @@ const updateChannelInfo = async (client, guildId) => {
       const channels = guild.channels.cache.filter(
         (channel) => channel.type === "GUILD_TEXT"
       );
-
       channels.map(async (channel) => {
         const { id, name } = channel;
         await updateChannel(guildId, id, name);

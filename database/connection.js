@@ -1,12 +1,29 @@
-const { databaseService } = require("tc-dbcomm");
+const { databaseService } = require("tc-dbcomm");const mongoose = require("mongoose");
 require("dotenv").config();
 
 const db_address = process.env.DB_ADDRESS;
 const db_user = process.env.DB_USER;
 const db_password = process.env.DB_PASSWORD;
-const database = `mongodb://${db_user}:${db_password}@${db_address}`;
+const database = `mongodb://${db_user}:${db_password}@${db_address}`; //database address
 const connectionMap = {};
 
+// connect to DB to fetch guild settings
+const connectDB = async () => {
+  const dbUri = database + "/" + process.env.RnDAO;
+  await mongoose.set("strictQuery", false);
+  // Connect to RnDAO DB
+  await mongoose
+    .connect(dbUri)
+    .then(() => {
+      console.log("Connected to MongoDB!");
+    })
+    .catch((e) => {
+      console.log(e);
+    });
+};
+
+// create connection to specific guild collection with connection map
+// if connection is already created, just return that connection
 const createConnection = (guildId) => {
   try {
     if (connectionMap[guildId]) return connectionMap[guildId];
@@ -19,6 +36,7 @@ const createConnection = (guildId) => {
   }
 };
 
+// remove connection
 const removeConnection = (guildId) => {
   try {
     if (connectionMap[guildId]) {
@@ -31,6 +49,7 @@ const removeConnection = (guildId) => {
 };
 
 module.exports = {
-    createConnection,
-    removeConnection
-}
+  createConnection,
+  removeConnection,
+  connectDB,
+};
