@@ -1,4 +1,4 @@
-const { updateChannel } = require("../database/dbservice.js");
+const { updateChannel, insertMessages } = require("../database/dbservice.js");
 
 /**
  * @dev fetch messages by filter
@@ -28,23 +28,21 @@ const fetchMessages = async (
       ) {
         try {
           //fetch all messages from the channel
-          const messages = await fetchMessages(guild, channel, "date", {
+          await fetchMessages(guild, channel, "date", {
             since: since,
             before: before,
             after: after,
           });
 
-          sum_messages.push(...messages);
           const threads = channel.threads.cache;
           // iterate all threads
           const threadPromises = threads.map(async (thread) => {
             // fetch messages from thread
-            const messages = await fetchMessages(guild, thread, "date", {
+            await fetchMessages(guild, thread, "date", {
               since: since,
               before: before,
               after: after,
             });
-            sum_messages.push(...messages);
           });
           await Promise.all(threadPromises);
         } catch (e) {
@@ -70,8 +68,7 @@ const fetchMessages = async (
       // console.log(e);
     }
     if (messages.length === 0) break;
-    sum_messages.push(...messages);
-
+    insertMessages(guild.id, messages);
     last_id = messages[0].id;
   }
   last_id = before;
@@ -92,11 +89,11 @@ const fetchMessages = async (
     if (messages.length === 0) return sum_messages;
     for (let i = 0; i < messages.length; i++) {
       if (messages[i].value.createdTimestamp < since) {
-        sum_messages.push(...messages.slice(0, i));
-        return sum_messages; // will return here
+        insertMessages(guild.id, messages.slice(0, i))
+        return ; // will return here
       }
     }
-    sum_messages.push(...messages);
+    insertMessages(guild.id, messages);
     last_id = messages[messages.length - 1].id;
   }
 };
