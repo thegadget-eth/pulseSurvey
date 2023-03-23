@@ -1,5 +1,4 @@
 const { updateChannel, insertMessages } = require("../database/dbservice.js");
-
 /**
  * @dev fetch messages by filter
  * @param guild discord guild
@@ -68,7 +67,7 @@ const fetchMessages = async (
       // console.log(e);
     }
     if (messages.length === 0) break;
-    insertMessages(guild.id, messages);
+    await insertMessages(guild.id, messages);
     last_id = messages[0].id;
   }
   last_id = before;
@@ -89,11 +88,11 @@ const fetchMessages = async (
     if (messages.length === 0) return sum_messages;
     for (let i = 0; i < messages.length; i++) {
       if (messages[i].value.createdTimestamp < since) {
-        insertMessages(guild.id, messages.slice(0, i))
-        return ; // will return here
+        await insertMessages(guild.id, messages.slice(0, i));
+        return; // will return here
       }
     }
-    insertMessages(guild.id, messages);
+    await insertMessages(guild.id, messages);
     last_id = messages[messages.length - 1].id;
   }
 };
