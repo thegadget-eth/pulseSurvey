@@ -1,4 +1,9 @@
-const { rawInfoService, guildService, channelsService } = require("tc-dbcomm");
+const {
+  rawInfoService,
+  guildService,
+  channelsService,
+  accountService,
+} = require("tc-dbcomm");
 const { createConnection } = require("./connection");
 // get users with id and value
 const getInteractions = async (id, value) => {
@@ -77,13 +82,13 @@ const messageToRawinfo = async (m) => {
   return data;
 };
 
-// insert message data into the database and return number of messages newly added
-const insertMessages = async (guildId, messages) => {
+// process message (insert into database & update account info) return number of messages newly added
+const processMessages = async (guildId, messages) => {
   const connection = createConnection(guildId);
   let countNewMessages = 0;
   const promises = messages.map(async ({ id, value: m }) => {
-    const data = await messageToRawinfo(m);
-    const response = await rawInfoService.createRawInfo(connection, data);
+    const rawinfo = await messageToRawinfo(m);
+    const response = await rawInfoService.createRawInfo(connection, rawinfo);
     if (response !== false) {
       countNewMessages++;
     }
@@ -122,7 +127,7 @@ const updateChannel = async (guildId, channelId, channel) => {
 
 const updateGuild = guildService.updateGuildByGuildId;
 module.exports = {
-  insertMessages,
+  processMessages,
   fetchSettings,
   getRange,
   updateGuild,

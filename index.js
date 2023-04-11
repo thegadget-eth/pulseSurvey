@@ -7,7 +7,7 @@ const {
 } = require("./database/dbservice.js");
 
 const { connectDB, removeConnection } = require("./database/connection");
-const { fetchMessages, updateChannelInfo } = require("./action/export.js");
+const { trackMessages, updateChannelInfo, updateAccountInfo } = require("./action/export.js");
 
 const { Client, Intents } = require("discord.js");
 require("dotenv").config();
@@ -25,12 +25,17 @@ const discordLogin = async () => {
     // once discord bot login then extract
     extract();
   });
+  console.log(process.env)
 
   await client.login(process.env.TOKEN);
 };
 
-// get required messages from discord and insert into database
-const fetchAndInsert = async (setting) => {
+/**
+ * @feature Track messages from discord between given time range
+ * @feature Insert messages rawinfo into database
+ * @feature Update account information
+ */ 
+const process = async (setting) => {
   const { guildId, selectedChannels, period } = setting;
   try {
     const channels = selectedChannels.map((item) => item.channelId);
@@ -42,7 +47,7 @@ const fetchAndInsert = async (setting) => {
       storedIdRange[0]?.messageId,
       storedIdRange[1]?.messageId,
     ];
-    const messages = await fetchMessages(guild, null, "channels", {
+    const messages = await trackMessages(guild, null, "channels", {
       channels: channels,
       since: timeStamp,
       before,
@@ -95,18 +100,19 @@ const extract = async () => {
   for (const setting of settings) {
     const { guildId, name } = setting;
     console.info("start extraction from ", name);
+    
+    console.info("make isProgress true in this server");
+    await toggleExtraction(setting, true);
 
     console.info("sync channel id and channel name");
     await updateChannelInfo(client, guildId);
 
-    console.info("make isProgress true in this server");
-    await toggleExtraction(setting, true);
+    console.info("sync account information");
+    await updateAccountInfo(client, guildId);
+    
 
-    // fetch missed messages from discord
-    console.info("fetching messages from discord server ", name);
-
-    await fetchAndInsert(setting);
-    // insert messages to the database
+    // console.info("tracking messages from discord server ", name);
+    // await process(setting);
 
     console.info("make isProgress false in this server");
     await toggleExtraction(setting, false);
