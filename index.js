@@ -90,25 +90,25 @@ const extract = async () => {
   const customGuildId = getGuildFromCmd();
   const settings = await fetchSettings(customGuildId);
   await checkBotStatus(settings);
-  console.log(settings.length, "connected discord servers");
+  console.info(settings.length, "connected discord servers");
 
   for (const setting of settings) {
     const { guildId, name } = setting;
-    console.log("start extraction from ", name);
+    console.info("start extraction from ", name);
 
-    console.log("sync channel id and channel name");
+    console.info("sync channel id and channel name");
     await updateChannelInfo(client, guildId);
 
-    console.log("make isProgress true in this server");
+    console.info("make isProgress true in this server");
     await toggleExtraction(setting, true);
 
     // fetch missed messages from discord
-    console.log("fetching messages from discord server ", name);
+    console.info("fetching messages from discord server ", name);
 
     await fetchAndInsert(setting);
     // insert messages to the database
 
-    console.log("make isProgress false in this server");
+    console.info("make isProgress false in this server");
     await toggleExtraction(setting, false);
 
     removeConnection(guildId);

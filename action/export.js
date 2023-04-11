@@ -53,6 +53,7 @@ const fetchMessages = async (
     return sum_messages;
   }
   // extract recent messages from one channel
+  before = after = null;
   let last_id = after;
   while (true && after != null) {
     const options = { limit: 100 };
