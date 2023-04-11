@@ -1,5 +1,4 @@
-const fs = require("node:fs");
-const path = require("node:path");
+const fs = require("node:fs");const path = require("node:path");
 const {
   fetchSettings,
   updateGuild,
@@ -7,10 +6,15 @@ const {
 } = require("./database/dbservice.js");
 
 const { connectDB, removeConnection } = require("./database/connection");
-const { trackMessages, updateChannelInfo, updateAccountInfo } = require("./action/export.js");
+const {
+  trackMessages,
+  updateChannelInfo,
+  updateAccountInfo,
+} = require("./action/export.js");
 
 const { Client, Intents } = require("discord.js");
 require("dotenv").config();
+
 const intents = new Intents(32767);
 const client = new Client({ intents });
 
@@ -20,13 +24,12 @@ const discordLogin = async () => {
   const eventFiles = fs
     .readdirSync(eventsPath)
     .filter((file) => file.endsWith(".js"));
+
   client.once("ready", () => {
     console.log(`Ready! Logged in as ${client.user.tag}`);
     // once discord bot login then extract
     extract();
   });
-  console.log(process.env)
-
   await client.login(process.env.TOKEN);
 };
 
@@ -34,8 +37,8 @@ const discordLogin = async () => {
  * @feature Track messages from discord between given time range
  * @feature Insert messages rawinfo into database
  * @feature Update account information
- */ 
-const process = async (setting) => {
+ */
+const messageAction = async (setting) => {
   const { guildId, selectedChannels, period } = setting;
   try {
     const channels = selectedChannels.map((item) => item.channelId);
@@ -100,7 +103,7 @@ const extract = async () => {
   for (const setting of settings) {
     const { guildId, name } = setting;
     console.info("start extraction from ", name);
-    
+
     console.info("make isProgress true in this server");
     await toggleExtraction(setting, true);
 
@@ -109,10 +112,9 @@ const extract = async () => {
 
     console.info("sync account information");
     await updateAccountInfo(client, guildId);
-    
 
     // console.info("tracking messages from discord server ", name);
-    // await process(setting);
+    // await messageAction(setting);
 
     console.info("make isProgress false in this server");
     await toggleExtraction(setting, false);

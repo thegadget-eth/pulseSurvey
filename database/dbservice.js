@@ -1,5 +1,4 @@
-const {
-  rawInfoService,
+const {  rawInfoService,
   guildService,
   channelsService,
   accountService,
@@ -125,6 +124,41 @@ const updateChannel = async (guildId, channelId, channel) => {
   return data;
 };
 
+// convert discord user data to account info based on schema
+const userToAccount = (member) => {
+  const user = member.user;
+  const guild = member.guild;
+  const joinTimestamp = member.joinedTimestamp;
+  const roleIds = member._roles;
+  const roles = [];
+  for(const roleId of roleIds) {
+    const role = guild.roles.cache.find((r) => r.id === roleId);
+    roles.push(role.name);
+  }
+
+  const account = {
+    id: user.id,
+    account: `${user.username}#${user.discriminator}`,
+    joinDate: new Date(joinTimestamp),
+    joinedChannel: "",
+    roles: roles
+  };
+  return account;
+};
+
+// sycn user info
+const updateAccount = async (guildId, member) => {
+  const connection = createConnection(guildId);
+  const account = userToAccount(member);
+  console.log(account);
+  const data = await accountService.updateAccount(
+    connection,
+    account.id,
+    account
+  );
+  return data;
+};
+
 const updateGuild = guildService.updateGuildByGuildId;
 module.exports = {
   processMessages,
@@ -132,4 +166,5 @@ module.exports = {
   getRange,
   updateGuild,
   updateChannel,
+  updateAccount,
 };

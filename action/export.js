@@ -1,4 +1,8 @@
-const { updateChannel, processMessages } = require("../database/dbservice.js");
+const {
+  updateChannel,
+  updateAccount,
+  processMessages,
+} = require("../database/dbservice.js");
 
 /**
  * @dev fetch messages by filter
@@ -154,12 +158,11 @@ const updateChannelInfo = async (client, guildId) => {
 const updateAccountInfo = async (client, guildId) => {
   try {
     const guild = client.guilds.cache.get(guildId);
-    console.log("fetching accounts");
     const accounts = await guild.members.fetch();
-    accounts.forEach((member) => {
-      console.log(member.user.username);
-  });
-
+    const promises = accounts.map(async (member) => {
+      await updateAccount(guildId, member);
+    });
+    await Promise.all(promises);
   } catch (e) {
     console.log("Error in updating account info", e);
   }
@@ -168,5 +171,5 @@ module.exports = {
   trackMessages,
   sendDMtoUser,
   updateChannelInfo,
-  updateAccountInfo
+  updateAccountInfo,
 };
