@@ -1,5 +1,4 @@
-const { rawInfoService, guildService, channelsService } = require("tc-dbcomm");
-const { createConnection } = require("./connection");
+const { rawInfoService, guildService, channelsService } = require("tc-dbcomm");const { createConnection } = require("./connection");
 // get users with id and value
 const getInteractions = async (id, value) => {
   let usernames = [];
@@ -59,7 +58,8 @@ const messageToRawinfo = async (m) => {
     reply = `${m.mentions?.repliedUser?.username}#${m.mentions?.repliedUser?.discriminator}`;
   }
   m.content = m.content.replace(new RegExp(",", "g"), " ");
-  const isThread = m.channel.type !== "GUILD_TEXT";
+  const isThread =
+    m.channel.type !== "GUILD_TEXT" && m.channel.type !== "GUILD_VOICE";
   const data = {
     type: m.type,
     datetime: convertDateToYYYYMMDD(new Date(m.createdTimestamp)),
