@@ -113,8 +113,8 @@ const extract = async () => {
     console.info("sync account information");
     await updateAccountInfo(client, guildId);
 
-    // console.info("tracking messages from discord server ", name);
-    // await messageAction(setting);
+    console.info("tracking messages from discord server ", name);
+    await messageAction(setting);
 
     console.info("make isProgress false in this server");
     await toggleExtraction(setting, false);

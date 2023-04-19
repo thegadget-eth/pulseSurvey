@@ -150,7 +150,6 @@ const userToAccount = (member) => {
 const updateAccount = async (guildId, member) => {
   const connection = createConnection(guildId);
   const account = userToAccount(member);
-  console.log(account);
   const data = await accountService.updateAccount(
     connection,
     account.id,
