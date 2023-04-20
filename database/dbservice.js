@@ -2,7 +2,7 @@ const {  rawInfoService,
   guildService,
   channelsService,
   accountService,
-} = require("tc-dbcomm");
+} = require("tc_dbcomm");
 const { createConnection } = require("./connection");
 // get users with id and value
 const getInteractions = async (id, value) => {

@@ -1,4 +1,4 @@
-const { databaseService } = require("tc-dbcomm");
+const { databaseService } = require("tc_dbcomm");
 const mongoose = require("mongoose");
 require("dotenv").config();
 
