@@ -1,5 +1,4 @@
-const fs = require("node:fs");
-const path = require("node:path");
+const fs = require("node:fs");const path = require("node:path");
 const {
   fetchSettings,
   updateGuild,
@@ -7,10 +6,15 @@ const {
 } = require("./database/dbservice.js");
 
 const { connectDB, removeConnection } = require("./database/connection");
-const { fetchMessages, updateChannelInfo } = require("./action/export.js");
+const {
+  trackMessages,
+  updateChannelInfo,
+  updateAccountInfo,
+} = require("./action/export.js");
 
 const { Client, Intents } = require("discord.js");
 require("dotenv").config();
+
 const intents = new Intents(32767);
 const client = new Client({ intents });
 
@@ -20,17 +24,21 @@ const discordLogin = async () => {
   const eventFiles = fs
     .readdirSync(eventsPath)
     .filter((file) => file.endsWith(".js"));
+
   client.once("ready", () => {
     console.log(`Ready! Logged in as ${client.user.tag}`);
     // once discord bot login then extract
     extract();
   });
-
   await client.login(process.env.TOKEN);
 };
 
-// get required messages from discord and insert into database
-const fetchAndInsert = async (setting) => {
+/**
+ * @feature Track messages from discord between given time range
+ * @feature Insert messages rawinfo into database
+ * @feature Update account information
+ */
+const messageAction = async (setting) => {
   const { guildId, selectedChannels, period } = setting;
   try {
     const channels = selectedChannels.map((item) => item.channelId);
@@ -42,7 +50,7 @@ const fetchAndInsert = async (setting) => {
       storedIdRange[0]?.messageId,
       storedIdRange[1]?.messageId,
     ];
-    const messages = await fetchMessages(guild, null, "channels", {
+    const messages = await trackMessages(guild, null, "channels", {
       channels: channels,
       since: timeStamp,
       before,
@@ -90,25 +98,25 @@ const extract = async () => {
   const customGuildId = getGuildFromCmd();
   const settings = await fetchSettings(customGuildId);
   await checkBotStatus(settings);
-  console.log(settings.length, "connected discord servers");
+  console.info(settings.length, "connected discord servers");
 
   for (const setting of settings) {
     const { guildId, name } = setting;
-    console.log("start extraction from ", name);
+    console.info("start extraction from ", name);
 
-    console.log("sync channel id and channel name");
-    await updateChannelInfo(client, guildId);
-
-    console.log("make isProgress true in this server");
+    console.info("make isProgress true in this server");
     await toggleExtraction(setting, true);
 
-    // fetch missed messages from discord
-    console.log("fetching messages from discord server ", name);
+    console.info("sync channel id and channel name");
+    await updateChannelInfo(client, guildId);
 
-    await fetchAndInsert(setting);
-    // insert messages to the database
+    console.info("sync account information");
+    await updateAccountInfo(client, guildId);
 
-    console.log("make isProgress false in this server");
+    console.info("tracking messages from discord server ", name);
+    await messageAction(setting);
+
+    console.info("make isProgress false in this server");
     await toggleExtraction(setting, false);
 
     removeConnection(guildId);

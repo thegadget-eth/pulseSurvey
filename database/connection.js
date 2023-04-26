@@ -1,4 +1,4 @@
-const { databaseService } = require("tc-dbcomm");
+const { databaseService } = require("tc_dbcomm");
 const mongoose = require("mongoose");
 require("dotenv").config();
 
@@ -40,12 +40,13 @@ const createConnection = (guildId) => {
 // remove connection
 const removeConnection = (guildId) => {
   try {
+    // can be connnecting, then should ignore
     if (connectionMap[guildId]) {
       connectionMap[guildId].close();
       connectionMap[guildId] = null;
     }
   } catch (e) {
-    console.log(e);
+    return null;
   }
 };
 

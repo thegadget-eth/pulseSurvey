@@ -1,4 +1,9 @@
-const { updateChannel, insertMessages } = require("../database/dbservice.js");
+const {
+  updateChannel,
+  updateAccount,
+  processMessages,
+} = require("../database/dbservice.js");
+
 /**
  * @dev fetch messages by filter
  * @param guild discord guild
@@ -9,7 +14,7 @@ const { updateChannel, insertMessages } = require("../database/dbservice.js");
  * @param channels filtering param by channel
  * @return messages
  */
-const fetchMessages = async (
+const trackMessages = async (
   guild,
   channel,
   type,
@@ -27,7 +32,7 @@ const fetchMessages = async (
       ) {
         try {
           //fetch all messages from the channel
-          await fetchMessages(guild, channel, "date", {
+          await trackMessages(guild, channel, "date", {
             since: since,
             before: before,
             after: after,
@@ -56,6 +61,7 @@ const fetchMessages = async (
     return sum_messages;
   }
   // extract recent messages from one channel
+  before = after = null;
   let last_id = after;
   while (true && after != null) {
     const options = { limit: 100 };
@@ -70,7 +76,7 @@ const fetchMessages = async (
       // console.log(e);
     }
     if (messages.length === 0) break;
-    await insertMessages(guild.id, messages);
+    await processMessages(guild.id, messages);
     last_id = messages[0].id;
   }
   last_id = before;
@@ -91,11 +97,11 @@ const fetchMessages = async (
     if (messages.length === 0) return sum_messages;
     for (let i = 0; i < messages.length; i++) {
       if (messages[i].value.createdTimestamp < since) {
-        await insertMessages(guild.id, messages.slice(0, i));
+        await processMessages(guild.id, messages.slice(0, i));
         return; // will return here
       }
     }
-    await insertMessages(guild.id, messages);
+    await processMessages(guild.id, messages);
     last_id = messages[messages.length - 1].id;
   }
 };
@@ -148,8 +154,26 @@ const updateChannelInfo = async (client, guildId) => {
   }
 };
 
+/**
+ * @dev sync channel id and channel name
+ * @param client discord client
+ * @param guildId id of guild
+ */
+const updateAccountInfo = async (client, guildId) => {
+  try {
+    const guild = client.guilds.cache.get(guildId);
+    const accounts = await guild.members.fetch();
+    const promises = accounts.map(async (member) => {
+      await updateAccount(guildId, member);
+    });
+    await Promise.all(promises);
+  } catch (e) {
+    console.log("Error in updating account info", e);
+  }
+};
 module.exports = {
-  fetchMessages,
+  trackMessages,
   sendDMtoUser,
   updateChannelInfo,
+  updateAccountInfo,
 };

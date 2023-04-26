@@ -1,4 +1,9 @@
-const { rawInfoService, guildService, channelsService } = require("tc-dbcomm");const { createConnection } = require("./connection");
+const {  rawInfoService,
+  guildService,
+  channelsService,
+  accountService,
+} = require("tc_dbcomm");
+const { createConnection } = require("./connection");
 // get users with id and value
 const getInteractions = async (id, value) => {
   let usernames = [];
@@ -77,13 +82,13 @@ const messageToRawinfo = async (m) => {
   return data;
 };
 
-// insert message data into the database and return number of messages newly added
-const insertMessages = async (guildId, messages) => {
+// process message (insert into database & update account info) return number of messages newly added
+const processMessages = async (guildId, messages) => {
   const connection = createConnection(guildId);
   let countNewMessages = 0;
   const promises = messages.map(async ({ id, value: m }) => {
-    const data = await messageToRawinfo(m);
-    const response = await rawInfoService.createRawInfo(connection, data);
+    const rawinfo = await messageToRawinfo(m);
+    const response = await rawInfoService.createRawInfo(connection, rawinfo);
     if (response !== false) {
       countNewMessages++;
     }
@@ -120,11 +125,46 @@ const updateChannel = async (guildId, channelId, channel) => {
   return data;
 };
 
+// convert discord user data to account info based on schema
+const userToAccount = (member) => {
+  const user = member.user;
+  const guild = member.guild;
+  const joinTimestamp = member.joinedTimestamp;
+  const roleIds = member._roles;
+  const roles = [];
+  for(const roleId of roleIds) {
+    const role = guild.roles.cache.find((r) => r.id === roleId);
+    roles.push(role.name);
+  }
+
+  const account = {
+    id: user.id,
+    account: `${user.username}#${user.discriminator}`,
+    joinDate: new Date(joinTimestamp),
+    joinedChannel: "",
+    roles: roles
+  };
+  return account;
+};
+
+// sycn user info
+const updateAccount = async (guildId, member) => {
+  const connection = createConnection(guildId);
+  const account = userToAccount(member);
+  const data = await accountService.updateAccount(
+    connection,
+    account.id,
+    account
+  );
+  return data;
+};
+
 const updateGuild = guildService.updateGuildByGuildId;
 module.exports = {
-  insertMessages,
+  processMessages,
   fetchSettings,
   getRange,
   updateGuild,
   updateChannel,
+  updateAccount,
 };
