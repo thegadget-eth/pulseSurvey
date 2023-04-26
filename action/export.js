@@ -1,5 +1,4 @@
 const { updateChannel, insertMessages } = require("../database/dbservice.js");
-
 /**
  * @dev fetch messages by filter
  * @param guild discord guild
@@ -23,7 +22,7 @@ const fetchMessages = async (
     const promises = guild.channels.cache.map(async (channel) => {
       const channelId = channel.id;
       if (
-        channel.type === "GUILD_TEXT" &&
+        (channel.type === "GUILD_TEXT" || channel.type === "GUILD_VOICE") &&
         (channels == null || channelList.includes(channelId))
       ) {
         try {
@@ -33,20 +32,23 @@ const fetchMessages = async (
             before: before,
             after: after,
           });
-
-          const threads = channel.threads.cache;
-          // iterate all threads
-          const threadPromises = threads.map(async (thread) => {
-            // fetch messages from thread
-            await fetchMessages(guild, thread, "date", {
-              since: since,
-              before: before,
-              after: after,
+          // there are only threads in text channel, not in voice channel
+          if (channel.type === "GUILD_TEXT") {
+            const threads = channel.threads.cache;
+            // iterate all threads
+            const threadPromises = threads.map(async (thread) => {
+              // fetch messages from thread
+              await fetchMessages(guild, thread, "date", {
+                since: since,
+                before: before,
+                after: after,
+              });
             });
-          });
-          await Promise.all(threadPromises);
+            await Promise.all(threadPromises);
+          }
         } catch (e) {
-          console.log(e);
+          // bot doesn't have access to channel.
+          // console.log(e);
         }
       }
     });
@@ -68,7 +70,7 @@ const fetchMessages = async (
       // console.log(e);
     }
     if (messages.length === 0) break;
-    insertMessages(guild.id, messages);
+    await insertMessages(guild.id, messages);
     last_id = messages[0].id;
   }
   last_id = before;
@@ -89,11 +91,11 @@ const fetchMessages = async (
     if (messages.length === 0) return sum_messages;
     for (let i = 0; i < messages.length; i++) {
       if (messages[i].value.createdTimestamp < since) {
-        insertMessages(guild.id, messages.slice(0, i))
-        return ; // will return here
+        await insertMessages(guild.id, messages.slice(0, i));
+        return; // will return here
       }
     }
-    insertMessages(guild.id, messages);
+    await insertMessages(guild.id, messages);
     last_id = messages[messages.length - 1].id;
   }
 };
@@ -133,7 +135,8 @@ const updateChannelInfo = async (client, guildId) => {
     const guild = client.guilds.cache.get(guildId);
     if (guild) {
       const channels = guild.channels.cache.filter(
-        (channel) => channel.type === "GUILD_TEXT"
+        (channel) =>
+          channel.type === "GUILD_TEXT" || channel.type === "GUILD_VOICE"
       );
       channels.map(async (channel) => {
         const { id, name } = channel;
