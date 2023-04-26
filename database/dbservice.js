@@ -138,10 +138,9 @@ const userToAccount = (member) => {
   }
 
   const account = {
-    id: user.id,
+    accountId: user.id,
     account: `${user.username}#${user.discriminator}`,
     joinDate: new Date(joinTimestamp),
-    joinedChannel: "",
     roles: roles
   };
   return account;
@@ -149,11 +148,22 @@ const userToAccount = (member) => {
 
 // sycn user info
 const updateAccount = async (guildId, member) => {
-  const connection = createConnection(guildId);
   const account = userToAccount(member);
-  const data = await accountService.updateAccount(
+  if(account.accountId === null) {
+    return ;
+  }
+  const connection = createConnection(guildId);
+  const find = await accountService.fetchAccount(connection, account.accountId);
+  if(find) {
+    const data = await accountService.updateAccount(
+      connection,
+      account.accountId,
+      account
+    );
+    return data;
+  }
+  const data = await accountService.createAccount(
     connection,
-    account.id,
     account
   );
   return data;
